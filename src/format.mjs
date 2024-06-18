@@ -30,14 +30,16 @@ const options = {
   ignoreReturnCode: true,
   silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-let args = ["fmt"];
-if (!createReview) {
-  args.push("-check");
-}
-if (core.getInput("recursive") === "true") {
+let args = ["fmt", "-check"];
+// if (!createReview) {
+//   args.push("-check");
+// }
+if (core.getBooleanInput("recursive", { required: true })) {
   args.push("-recursive");
 }
+core.debug(`Running: terraform fmt ${args.join(" ")}`);
 const exitCode = await exec(terraformCLI, args, options);
+core.debug(`Terraform fmt exit code: ${exitCode}`);
 switch (exitCode) {
   case 0:
     core.info("Terraform configuration is formatted correctly");

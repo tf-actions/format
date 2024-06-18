@@ -32205,14 +32205,16 @@ const options = {
   ignoreReturnCode: true,
   silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-let args = ["fmt"];
-if (!createReview) {
-  args.push("-check");
-}
-if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("recursive") === "true") {
+let args = ["fmt", "-check"];
+// if (!createReview) {
+//   args.push("-check");
+// }
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
   args.push("-recursive");
 }
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: terraform fmt ${args.join(" ")}`);
 const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(terraformCLI, args, options);
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Terraform fmt exit code: ${exitCode}`);
 switch (exitCode) {
   case 0:
     _actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Terraform configuration is formatted correctly");
