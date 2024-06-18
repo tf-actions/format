@@ -14,6 +14,9 @@ inputs:
     description: Create a code review with the required formatting changes
     required: true
     default: "false"
+  token:
+    description: GitHub token to create a code review
+    required: true
 runs:
   using: node20
   main: dist/index.mjs
