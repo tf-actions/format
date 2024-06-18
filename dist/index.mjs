@@ -32509,7 +32509,14 @@ function getFilePath(ctx, input, type) {
 
 
 
-// Much of this function is taken from https://github.com/parkerbxyz/suggest-changes
+// Much of this file is taken from https://github.com/parkerbxyz/suggest-changes
+function generateSuggestionBody(changes) {
+  return changes
+    .filter(({ type }) => type === "AddedLine" || type === "UnchangedLine")
+    .map(({ content }) => content)
+    .join("\n");
+}
+
 async function createReview(reviewBody) {
   core.startGroup("Creating code review");
 
@@ -32531,14 +32538,11 @@ async function createReview(reviewBody) {
     }
   );
 
+  core.debug(`Git diff: ${diff.stdout}`);
+
   const changedFiles = mjs(diff.stdout).files.filter(
     (/** @type {{ type: string; }} */ file) => file.type === "ChangedFile"
   );
-
-  const { data: reviews } = await octokit.rest.pulls.listReviews({
-    ...github.context.payload.repository,
-    pull_number: github.context.payload.number,
-  });
 
   // Create an array of comments with suggested changes for each chunk of each changed file
   const comments = changedFiles.flatMap(({ path, chunks }) =>
@@ -32552,16 +32556,27 @@ async function createReview(reviewBody) {
       side: "RIGHT",
       // Quadruple backticks allow for triple backticks in a fenced code block in the suggestion body
       // https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#fenced-code-blocks
-      body: `\`\`\`\`suggestion\n${generateSuggestionBody(changes)}\n\`\`\`\``,
+      body: "````suggestion\n" + generateSuggestionBody(changes) + "\n````",
     }))
   );
 
+  core.debug("Listing reviews on the pull request");
+  const { data: reviews } = await octokit.rest.pulls.listReviews({
+    ...github.context.payload.repository,
+    pull_number: github.context.payload.number,
+  });
+  core.debug(`Retrieved ${length(reviews)} reviews`);
+
+  core.debug("Finding existing review");
   const reviewId = reviews.find(
     (review) => review.user.type === "Bot" && review.body === reviewBody
   )?.id;
+  core.debug(`Review ID: ${reviewId}`);
 
   let query;
   if (reviewId) {
+    // I think we need to delete and recreate as it seems the update
+    // can't update the comments associated with the review, only the review itself
     core.debug(`Updating review ${reviewId}`);
     query = `
       mutation UpdateReview{
