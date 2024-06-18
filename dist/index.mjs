@@ -32126,6 +32126,485 @@ module.exports = parseParams
 
 /***/ }),
 
+/***/ 1667:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  "X": () => (/* binding */ createReview)
+});
+
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var core = __nccwpck_require__(30);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var github = __nccwpck_require__(5139);
+// EXTERNAL MODULE: ./node_modules/@actions/exec/lib/exec.js
+var exec = __nccwpck_require__(4006);
+;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/context.js
+class Context {
+    line = 1;
+    lines = [];
+    options = {
+        noPrefix: false,
+    };
+    constructor(diff, options) {
+        this.lines = diff.split('\n');
+        this.options.noPrefix = !!options?.noPrefix;
+    }
+    getCurLine() {
+        return this.lines[this.line - 1];
+    }
+    nextLine() {
+        this.line++;
+        return this.getCurLine();
+    }
+    isEof() {
+        return this.line > this.lines.length;
+    }
+}
+//# sourceMappingURL=context.js.map
+;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/constants.js
+const LineType = {
+    Added: 'AddedLine',
+    Deleted: 'DeletedLine',
+    Unchanged: 'UnchangedLine',
+    Message: 'MessageLine',
+};
+const FileType = {
+    Changed: 'ChangedFile',
+    Added: 'AddedFile',
+    Deleted: 'DeletedFile',
+    Renamed: 'RenamedFile',
+};
+const ExtendedHeader = {
+    Index: 'index',
+    Old: 'old',
+    Copy: 'copy',
+    Similarity: 'similarity',
+    Dissimilarity: 'dissimilarity',
+    Deleted: 'deleted',
+    NewFile: 'new file',
+    RenameFrom: 'rename from',
+    RenameTo: 'rename to',
+};
+const ExtendedHeaderValues = Object.values(ExtendedHeader);
+//# sourceMappingURL=constants.js.map
+;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/parse-git-diff.js
+
+
+function parseGitDiff(diff, options) {
+    const ctx = new Context(diff, options);
+    const files = parseFileChanges(ctx);
+    return {
+        type: 'GitDiff',
+        files,
+    };
+}
+function parseFileChanges(ctx) {
+    const changedFiles = [];
+    while (!ctx.isEof()) {
+        const changed = parseFileChange(ctx);
+        if (!changed) {
+            break;
+        }
+        changedFiles.push(changed);
+    }
+    return changedFiles;
+}
+function parseFileChange(ctx) {
+    if (!isComparisonInputLine(ctx.getCurLine())) {
+        return;
+    }
+    ctx.nextLine();
+    let isDeleted = false;
+    let isNew = false;
+    let isRename = false;
+    let pathBefore = '';
+    let pathAfter = '';
+    while (!ctx.isEof()) {
+        const extHeader = parseExtendedHeader(ctx);
+        if (!extHeader) {
+            break;
+        }
+        if (extHeader.type === ExtendedHeader.Deleted)
+            isDeleted = true;
+        if (extHeader.type === ExtendedHeader.NewFile)
+            isNew = true;
+        if (extHeader.type === ExtendedHeader.RenameFrom) {
+            isRename = true;
+            pathBefore = extHeader.path;
+        }
+        if (extHeader.type === ExtendedHeader.RenameTo) {
+            isRename = true;
+            pathAfter = extHeader.path;
+        }
+    }
+    const changeMarkers = parseChangeMarkers(ctx);
+    const chunks = parseChunks(ctx);
+    if (isDeleted && changeMarkers) {
+        return {
+            type: FileType.Deleted,
+            chunks,
+            path: changeMarkers.deleted,
+        };
+    }
+    else if (isDeleted &&
+        chunks.length &&
+        chunks[0].type === 'BinaryFilesChunk') {
+        return {
+            type: FileType.Deleted,
+            chunks,
+            path: chunks[0].pathBefore,
+        };
+    }
+    else if (isNew && changeMarkers) {
+        return {
+            type: FileType.Added,
+            chunks,
+            path: changeMarkers.added,
+        };
+    }
+    else if (isNew && chunks.length && chunks[0].type === 'BinaryFilesChunk') {
+        return {
+            type: FileType.Added,
+            chunks,
+            path: chunks[0].pathAfter,
+        };
+    }
+    else if (isRename) {
+        return {
+            type: FileType.Renamed,
+            pathAfter,
+            pathBefore,
+            chunks,
+        };
+    }
+    else if (changeMarkers) {
+        return {
+            type: FileType.Changed,
+            chunks,
+            path: changeMarkers.added,
+        };
+    }
+    else if (chunks.length &&
+        chunks[0].type === 'BinaryFilesChunk' &&
+        chunks[0].pathAfter) {
+        return {
+            type: FileType.Changed,
+            chunks,
+            path: chunks[0].pathAfter,
+        };
+    }
+    return;
+}
+function isComparisonInputLine(line) {
+    return line.indexOf('diff') === 0;
+}
+function parseChunks(context) {
+    const chunks = [];
+    while (!context.isEof()) {
+        const chunk = parseChunk(context);
+        if (!chunk) {
+            break;
+        }
+        chunks.push(chunk);
+    }
+    return chunks;
+}
+function parseChunk(context) {
+    const chunkHeader = parseChunkHeader(context);
+    if (!chunkHeader) {
+        return;
+    }
+    if (chunkHeader.type === 'Normal') {
+        const changes = parseChanges(context, chunkHeader.fromFileRange, chunkHeader.toFileRange);
+        return {
+            ...chunkHeader,
+            type: 'Chunk',
+            changes,
+        };
+    }
+    else if (chunkHeader.type === 'Combined' &&
+        chunkHeader.fromFileRangeA &&
+        chunkHeader.fromFileRangeB) {
+        const changes = parseChanges(context, chunkHeader.fromFileRangeA.start < chunkHeader.fromFileRangeB.start
+            ? chunkHeader.fromFileRangeA
+            : chunkHeader.fromFileRangeB, chunkHeader.toFileRange);
+        return {
+            ...chunkHeader,
+            type: 'CombinedChunk',
+            changes,
+        };
+    }
+    else if (chunkHeader.type === 'BinaryFiles' &&
+        chunkHeader.fileA &&
+        chunkHeader.fileB) {
+        return {
+            type: 'BinaryFilesChunk',
+            pathBefore: chunkHeader.fileA,
+            pathAfter: chunkHeader.fileB,
+        };
+    }
+}
+function parseExtendedHeader(ctx) {
+    const line = ctx.getCurLine();
+    const type = ExtendedHeaderValues.find((v) => line.startsWith(v));
+    if (type) {
+        ctx.nextLine();
+    }
+    if (type === ExtendedHeader.RenameFrom || type === ExtendedHeader.RenameTo) {
+        return {
+            type,
+            path: line.slice(`${type} `.length),
+        };
+    }
+    else if (type) {
+        return {
+            type,
+        };
+    }
+    return null;
+}
+function parseChunkHeader(ctx) {
+    const line = ctx.getCurLine();
+    const normalChunkExec = /^@@\s\-(\d+),?(\d+)?\s\+(\d+),?(\d+)?\s@@\s?(.+)?/.exec(line);
+    if (!normalChunkExec) {
+        const combinedChunkExec = /^@@@\s\-(\d+),?(\d+)?\s\-(\d+),?(\d+)?\s\+(\d+),?(\d+)?\s@@@\s?(.+)?/.exec(line);
+        if (!combinedChunkExec) {
+            const binaryChunkExec = /^Binary\sfiles\s(.*)\sand\s(.*)\sdiffer$/.exec(line);
+            if (binaryChunkExec) {
+                const [all, fileA, fileB] = binaryChunkExec;
+                ctx.nextLine();
+                return {
+                    type: 'BinaryFiles',
+                    fileA: getFilePath(ctx, fileA, 'src'),
+                    fileB: getFilePath(ctx, fileB, 'dst'),
+                };
+            }
+            return null;
+        }
+        const [all, delStartA, delLinesA, delStartB, delLinesB, addStart, addLines, context,] = combinedChunkExec;
+        ctx.nextLine();
+        return {
+            context,
+            type: 'Combined',
+            fromFileRangeA: getRange(delStartA, delLinesA),
+            fromFileRangeB: getRange(delStartB, delLinesB),
+            toFileRange: getRange(addStart, addLines),
+        };
+    }
+    const [all, delStart, delLines, addStart, addLines, context] = normalChunkExec;
+    ctx.nextLine();
+    return {
+        context,
+        type: 'Normal',
+        toFileRange: getRange(addStart, addLines),
+        fromFileRange: getRange(delStart, delLines),
+    };
+}
+function getRange(start, lines) {
+    const startNum = parseInt(start, 10);
+    return {
+        start: startNum,
+        lines: lines === undefined ? startNum : parseInt(lines, 10),
+    };
+}
+function parseChangeMarkers(context) {
+    const deleterMarker = parseMarker(context, '--- ');
+    const deleted = deleterMarker
+        ? getFilePath(context, deleterMarker, 'src')
+        : deleterMarker;
+    const addedMarker = parseMarker(context, '+++ ');
+    const added = addedMarker
+        ? getFilePath(context, addedMarker, 'dst')
+        : addedMarker;
+    return added && deleted ? { added, deleted } : null;
+}
+function parseMarker(context, marker) {
+    const line = context.getCurLine();
+    if (line?.startsWith(marker)) {
+        context.nextLine();
+        return line.replace(marker, '');
+    }
+    return null;
+}
+const CHAR_TYPE_MAP = {
+    '+': LineType.Added,
+    '-': LineType.Deleted,
+    ' ': LineType.Unchanged,
+    '\\': LineType.Message,
+};
+function parseChanges(ctx, rangeBefore, rangeAfter) {
+    const changes = [];
+    let lineBefore = rangeBefore.start;
+    let lineAfter = rangeAfter.start;
+    while (!ctx.isEof()) {
+        const line = ctx.getCurLine();
+        const type = getLineType(line);
+        if (!type) {
+            break;
+        }
+        ctx.nextLine();
+        let change;
+        const content = line.slice(1);
+        switch (type) {
+            case LineType.Added: {
+                change = {
+                    type,
+                    lineAfter: lineAfter++,
+                    content,
+                };
+                break;
+            }
+            case LineType.Deleted: {
+                change = {
+                    type,
+                    lineBefore: lineBefore++,
+                    content,
+                };
+                break;
+            }
+            case LineType.Unchanged: {
+                change = {
+                    type,
+                    lineBefore: lineBefore++,
+                    lineAfter: lineAfter++,
+                    content,
+                };
+                break;
+            }
+            case LineType.Message: {
+                change = {
+                    type,
+                    content: content.trim(),
+                };
+                break;
+            }
+        }
+        changes.push(change);
+    }
+    return changes;
+}
+function getLineType(line) {
+    return CHAR_TYPE_MAP[line[0]] || null;
+}
+function getFilePath(ctx, input, type) {
+    if (ctx.options.noPrefix) {
+        return input;
+    }
+    if (type === 'src')
+        return input.replace(/^a\//, '');
+    if (type === 'dst')
+        return input.replace(/^b\//, '');
+}
+//# sourceMappingURL=parse-git-diff.js.map
+;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/index.js
+
+/* harmony default export */ const mjs = (parseGitDiff);
+//# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: ./src/create-review.mjs
+
+
+
+
+
+// Much of this function is taken from https://github.com/parkerbxyz/suggest-changes
+async function createReview(reviewBody) {
+  core.startGroup("Creating code review");
+
+  core.debug("Creating octokit client");
+  const octokit = github.getOctokit(core.getInput("token", { required: true }));
+
+  const pullRequestFiles = (
+    await octokit.rest.pulls.listFiles({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+    })
+  ).data.map((file) => file.filename);
+
+  const diff = await (0,exec.getExecOutput)(
+    "git",
+    ["diff", "--unified=0", "--", ...pullRequestFiles],
+    {
+      silent: true,
+    }
+  );
+
+  const changedFiles = mjs(diff.stdout).files.filter(
+    (/** @type {{ type: string; }} */ file) => file.type === "ChangedFile"
+  );
+
+  const { data: reviews } = await octokit.rest.pulls.listReviews({
+    ...github.context.payload.repository,
+    pull_number: github.context.payload.number,
+  });
+
+  // Create an array of comments with suggested changes for each chunk of each changed file
+  const comments = changedFiles.flatMap(({ path, chunks }) =>
+    chunks.map(({ fromFileRange, changes }) => ({
+      path,
+      start_line: fromFileRange.start,
+      // The last line of the chunk is the start line plus the number of lines in the chunk
+      // minus 1 to account for the start line being included in fromFileRange.lines
+      line: fromFileRange.start + fromFileRange.lines - 1,
+      start_side: "RIGHT",
+      side: "RIGHT",
+      // Quadruple backticks allow for triple backticks in a fenced code block in the suggestion body
+      // https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#fenced-code-blocks
+      body: `\`\`\`\`suggestion\n${generateSuggestionBody(changes)}\n\`\`\`\``,
+    }))
+  );
+
+  const reviewId = reviews.find(
+    (review) => review.user.type === "Bot" && review.body === reviewBody
+  )?.id;
+
+  let query;
+  if (reviewId) {
+    core.debug(`Updating review ${reviewId}`);
+    query = `
+      mutation UpdateReview{
+        updatePullRequestReview(input: {
+          pullRequestReviewId: "${reviewId}",
+          body: ${reviewBody},
+          comments: ${comments},
+          commitOID: ${github.context.sha},
+          event: REQUEST_CHANGES
+        }) {
+          pullRequestReview {
+            updatedAt
+          }
+        }
+      }
+    `;
+  } else {
+    core.debug("Creating new review");
+    query = `
+      mutation CreateReview{
+        addPullRequestReview(input: {
+          pullRequestId: "${github.context.payload.pull_request.id}",
+          body: ${reviewBody},
+          comments: ${comments},
+          commitOID: ${github.context.sha},
+          event: REQUEST_CHANGES
+        }) {
+          pullRequestReview {
+            createdAt
+          }
+        }
+      }
+    `;
+  }
+  core.debug(`query: ${query}`);
+  await octokit.graphql(query);
+  core.info("Review created");
+  core.endGroup();
+}
+
+
+/***/ }),
+
 /***/ 9717:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
@@ -32173,12 +32652,23 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5139);
 /* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(4006);
 /* harmony import */ var _find_cli_mjs__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9717);
+/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(1667);
 
 
 
 
 
-const createReview = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true });
+
+let createAReview = false;
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true })) {
+  if (_actions_github__WEBPACK_IMPORTED_MODULE_1__.context.payload.pull_request) {
+    createAReview = true;
+  } else {
+    _actions_core__WEBPACK_IMPORTED_MODULE_0__.warning(
+      "Can only create a review for pull_request events. Ignoring create-review input"
+    );
+  }
+}
 
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Starting Terraform formatting validation");
 
@@ -32206,9 +32696,6 @@ const options = {
   silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
 let args = ["fmt", "-check"];
-// if (!createReview) {
-//   args.push("-check");
-// }
 if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
   args.push("-recursive");
 }
@@ -32222,7 +32709,7 @@ switch (exitCode) {
       .write();
     process.exit();
   case 3:
-    // Terraform fmt returns 3 if there are formatting errors to be made
+    // Terraform fmt returns 3 if there are formatting errors to be corrected
     break;
   default:
     _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(`Terraform fmt failed with exit code ${exitCode}`);
@@ -32234,7 +32721,7 @@ let summary = await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary.addHeadin
   .addRaw(`Found ${files.length} files with formatting issues`, true)
   .addList(files);
 
-if (!createReview) {
+if (!createAReview) {
   summary.addRaw(
     "Please run `terraform fmt` locally to fix the formatting issues",
     true
@@ -32252,42 +32739,20 @@ for (const file of files) {
 }
 
 // Create a review to fix the formatting issues if requested
-if (createReview) {
+if (createAReview) {
   _actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review to fix the formatting issues");
-  _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(
-    `The context info: ${JSON.stringify(_actions_github__WEBPACK_IMPORTED_MODULE_1__.context, undefined, 2)}`
-  );
-  // const { owner, repo } = github.context.repo;
-  // const { data: pullRequest } = await octokit.pulls.get({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  // });
-  // const { data: reviews } = await octokit.pulls.listReviews({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  // });
-  // const reviewId = reviews.find(
-  //   (review) => review.user.login === "github-actions[bot]"
-  // )?.id;
-  // if (reviewId) {
-  //   await octokit.pulls.deleteReview({
-  //     owner,
-  //     repo,
-  //     pull_number: pullRequestNumber,
-  //     review_id: reviewId,
-  //   });
-  // }
-  // await octokit.pulls.createReview({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  //   commit_id: pullRequest.head.sha,
-  //   body: "Please run `terraform fmt` to fix the formatting issues",
-  //   event: "REQUEST_CHANGES",
-  // });
-  _actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Review created");
+  _actions_core__WEBPACK_IMPORTED_MODULE_0__.startGroup("Running terraform fmt to correct the formatting issues");
+  args = ["fmt"];
+  if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
+    args.push("-recursive");
+  }
+  await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(terraformCLI, args);
+  _actions_core__WEBPACK_IMPORTED_MODULE_0__.endGroup();
+
+  await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_4__/* .createReview */ .X)(`
+    # Terraform Formatting Review
+    Some files in this pull request have formatting issues. Please run \`terraform fmt\` to fix them.
+  `);
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Terraform formatting needs to be updated");
 

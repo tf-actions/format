@@ -2,8 +2,18 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { exec } from "@actions/exec";
 import { findTerraformCLI } from "./find-cli.mjs";
+import { createReview } from "./create-review.mjs";
 
-const createReview = core.getBooleanInput("create-review", { required: true });
+let createAReview = false;
+if (core.getBooleanInput("create-review", { required: true })) {
+  if (github.context.payload.pull_request) {
+    createAReview = true;
+  } else {
+    core.warning(
+      "Can only create a review for pull_request events. Ignoring create-review input"
+    );
+  }
+}
 
 core.debug("Starting Terraform formatting validation");
 
@@ -31,9 +41,6 @@ const options = {
   silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
 let args = ["fmt", "-check"];
-// if (!createReview) {
-//   args.push("-check");
-// }
 if (core.getBooleanInput("recursive", { required: true })) {
   args.push("-recursive");
 }
@@ -48,7 +55,7 @@ switch (exitCode) {
       .write();
     process.exit();
   case 3:
-    // Terraform fmt returns 3 if there are formatting errors to be made
+    // Terraform fmt returns 3 if there are formatting errors to be corrected
     break;
   default:
     core.setFailed(`Terraform fmt failed with exit code ${exitCode}`);
@@ -61,7 +68,7 @@ let summary = await core.summary
   .addRaw(`Found ${files.length} files with formatting issues`, true)
   .addList(files);
 
-if (!createReview) {
+if (!createAReview) {
   summary.addRaw(
     "Please run `terraform fmt` locally to fix the formatting issues",
     true
@@ -79,41 +86,19 @@ for (const file of files) {
 }
 
 // Create a review to fix the formatting issues if requested
-if (createReview) {
+if (createAReview) {
   core.info("Creating a review to fix the formatting issues");
-  core.debug(
-    `The context info: ${JSON.stringify(github.context, undefined, 2)}`
-  );
-  // const { owner, repo } = github.context.repo;
-  // const { data: pullRequest } = await octokit.pulls.get({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  // });
-  // const { data: reviews } = await octokit.pulls.listReviews({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  // });
-  // const reviewId = reviews.find(
-  //   (review) => review.user.login === "github-actions[bot]"
-  // )?.id;
-  // if (reviewId) {
-  //   await octokit.pulls.deleteReview({
-  //     owner,
-  //     repo,
-  //     pull_number: pullRequestNumber,
-  //     review_id: reviewId,
-  //   });
-  // }
-  // await octokit.pulls.createReview({
-  //   owner,
-  //   repo,
-  //   pull_number: pullRequestNumber,
-  //   commit_id: pullRequest.head.sha,
-  //   body: "Please run `terraform fmt` to fix the formatting issues",
-  //   event: "REQUEST_CHANGES",
-  // });
-  core.info("Review created");
+  core.startGroup("Running terraform fmt to correct the formatting issues");
+  args = ["fmt"];
+  if (core.getBooleanInput("recursive", { required: true })) {
+    args.push("-recursive");
+  }
+  await exec(terraformCLI, args);
+  core.endGroup();
+
+  await createReview(`
+    # Terraform Formatting Review
+    Some files in this pull request have formatting issues. Please run \`terraform fmt\` to fix them.
+  `);
 }
 core.setFailed("Terraform formatting needs to be updated");
