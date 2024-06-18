@@ -1,0 +1,22 @@
+name: Terraform Formatting
+description: Format a Terraform configuration, and optionally post a code review on the pull request highlighting issues.
+author: oWretch
+inputs:
+  init:
+    description: Run terraform init before validating
+    required: true
+    default: "true"
+  recursive:
+    description: Recursively format all files in the directory
+    required: true
+    default: "false"
+  create-review:
+    description: Create a code review with the required formatting changes
+    required: true
+    default: "false"
+runs:
+  using: node20
+  main: dist/index.mjs
+branding:
+  icon: code
+  color: purple
