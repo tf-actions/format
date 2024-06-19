@@ -24,26 +24,28 @@ export async function createReview(reviewBody) {
     ...context.repo,
     pull_number: pull_request.number,
   });
-  console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
-
-  const changes = await getChanges(
-    pullRequestFiles.map((file) => file.filename)
+  const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
+  console.debug(
+    `pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`
   );
+
+  const changes = await getChanges(pullRequestFileNames);
   const comments = createReviewComments(changes);
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviewId = await octokit.rest.pulls
-    .listReviews({
-      ...context.repo,
-      pull_number: pull_request.number,
-    })
-    .data.find(
-      (review) =>
-        review.user.type === "Bot" &&
-        review.state === "CHANGES_REQUESTED" &&
-        review.body === reviewBody
-    )?.id;
+  const { data: reviews } = await octokit.rest.pulls.listReviews({
+    ...context.repo,
+    pull_number: pull_request.number,
+  });
+  core.debug(`Reviews: ${JSON.stringify(reviews)}`);
+
+  const reviewId = reviews.data.find(
+    (review) =>
+      review.user.type === "Bot" &&
+      review.state === "CHANGES_REQUESTED" &&
+      review.body === reviewBody
+  )?.id;
   core.debug(`Review ID: ${reviewId}`);
 
   if (reviewId) {
