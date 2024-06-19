@@ -18,10 +18,8 @@ export async function createReview(reviewBody) {
   let response = await octokit.rest.pulls.listFiles({
     ...github.context.payload.repository,
     pull_number: github.context.payload.number,
-    // owner: "SoliDeoGloria-Tech",
-    // repo: "workflow-testing",
-    // pull_number: 1,
   });
+  console.debug(`listFiles Response: ${JSON.stringify(response)}`);
   const pullRequestFiles = response.data.map((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 

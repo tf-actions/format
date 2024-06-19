@@ -93,7 +93,7 @@ if (createAReview) {
   if (core.getBooleanInput("recursive", { required: true })) {
     args.push("-recursive");
   }
-  await exec(terraformCLI, args);
+  await exec(terraformCLI, args, { ignoreReturnCode: true, silent: true });
   core.endGroup();
 
   await createReview(`
