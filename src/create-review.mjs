@@ -48,7 +48,7 @@ export async function createReview() {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const { id: reviewId } = octokit.paginate(
+  const { id: reviewIds } = octokit.paginate(
     octokit.rest.pulls.listReviews,
     {
       ...context.repo,
@@ -57,22 +57,22 @@ export async function createReview() {
     (response) =>
       response.data
         .map((review) => {
-          core.debug(`Review: ${JSON.stringify(review)}`);
           if (
             review.user.type === "Bot" &&
             review.state === "CHANGES_REQUESTED" &&
             review.body.includes("Terraform Formatting Review")
           ) {
-            core.info("Found existing review");
-            core.debug(`ID: ${review.id}`);
-            return review;
+            core.debug(`Found existing review ID: ${review.id}`);
+            return review.id;
           }
         })
         .filter((n) => n)
   );
-  core.debug(`Review ID: ${JSON.stringify(reviewId)}`);
-  if (reviewId) {
+  core.debug(`Review ID: ${JSON.stringify(reviewIds)}`);
+
+  for (const reviewId of reviewIds) {
     core.debug("Dismiss the existing review");
+    core.debug(`Review ID: ${reviewId}`);
     await octokit.rest.pulls.dismissReview({
       ...context.repo,
       pull_number: pull_request.number,
