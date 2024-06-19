@@ -32281,14 +32281,12 @@ async function createReview(reviewBody) {
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
-  const pullRequestFiles = await octokit
-    .paginate(
-      octokit.pulls.listFiles({
-        ...context.repo,
-        pull_number: pull_request.number,
-      })
-    )
-    .then((file) => file.filename);
+  const pullRequestFiles = await octokit.rest.pulls
+    .listFiles({
+      ...context.repo,
+      pull_number: pull_request.number,
+    })
+    .data.map((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
   const changes = await getChanges(pullRequestFiles);
@@ -32296,20 +32294,17 @@ async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviewResponse = await octokit.pulls.listReviews({
-    ...context.repo,
-    pull_number: pull_request.number,
-  });
-  console.log(`reviews: ${JSON.stringify(reviewResponse)}`);
-  core.debug(`Retrieved ${reviewResponse.data.length} reviews`);
-
-  core.debug("Finding existing review");
-  const reviewId = reviewResponse.data.find(
-    (review) =>
-      review.user.type === "Bot" &&
-      review.state === "CHANGES_REQUESTED" &&
-      review.body === reviewBody
-  )?.id;
+  const reviewId = await octokit.rest.pulls
+    .listReviews({
+      ...context.repo,
+      pull_number: pull_request.number,
+    })
+    .data.find(
+      (review) =>
+        review.user.type === "Bot" &&
+        review.state === "CHANGES_REQUESTED" &&
+        review.body === reviewBody
+    )?.id;
   core.debug(`Review ID: ${reviewId}`);
 
   if (reviewId) {
