@@ -15,7 +15,6 @@ export async function createReview(reviewBody) {
   const octokit = new Octokit({
     auth: core.getInput("token", { required: true }),
     baseUrl: core.getInput("api-url", { required: true }),
-    log: console,
   });
 
   // Get list of files in the current pull request.
@@ -36,12 +35,10 @@ export async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviews = await octokit.paginate(
-    octokit.rest.pulls.listReviews({
-      ...context.payload.repository,
-      pull_number: context.payload.number,
-    })
-  );
+  const reviews = await octokit.rest.pulls.listReviews({
+    ...context.payload.repository,
+    pull_number: context.payload.number,
+  });
   core.debug(`Retrieved ${reviews.length} reviews`);
   console.log(`reviews: ${JSON.stringify(reviews)}`);
 
