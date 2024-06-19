@@ -20,7 +20,7 @@ export async function createReview(reviewBody) {
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
-  const pullRequestFiles = octokit
+  const pullRequestFiles = await octokit
     .paginate(
       octokit.rest.pulls.listFiles({
         ...context.payload.repository,
@@ -36,7 +36,7 @@ export async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviews = octokit.paginate(
+  const reviews = await octokit.paginate(
     octokit.rest.pulls.listReviews({
       ...context.payload.repository,
       pull_number: context.payload.number,
