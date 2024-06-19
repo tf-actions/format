@@ -28,12 +28,16 @@ export async function createReview() {
       pull_number: pull_request.number,
     },
     (response) =>
-      response.data.map((file) => {
-        // We only care about Terraform code files
-        if (extensions.includes(file.filename.split(".").pop().toLowerCase())) {
-          return file.filename;
-        }
-      })
+      response.data
+        .map((file) => {
+          // We only care about Terraform code files
+          if (
+            extensions.includes(file.filename.split(".").pop().toLowerCase())
+          ) {
+            return file.filename;
+          }
+        })
+        .filter((n) => n)
   );
   console.debug(
     `pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`
@@ -51,21 +55,23 @@ export async function createReview() {
       pull_number: pull_request.number,
     },
     (response) =>
-      response.data.map((review) => {
-        core.debug(`Review: ${JSON.stringify(review)}`);
-        if (
-          review.user.type === "Bot" &&
-          review.state === "CHANGES_REQUESTED" &&
-          review.body.includes("Terraform Formatting Review")
-        ) {
-          return review;
-        }
-      })
+      response.data
+        .map((review) => {
+          core.debug(`Review: ${JSON.stringify(review)}`);
+          if (
+            review.user.type === "Bot" &&
+            review.state === "CHANGES_REQUESTED" &&
+            review.body.includes("Terraform Formatting Review")
+          ) {
+            return review;
+          }
+        })
+        .filter((n) => n)
   );
-  core.info("Found existing review");
-  core.debug(`ID: ${JSON.stringify(reviewId)}`);
 
   if (reviewId) {
+    core.info("Found existing review");
+    core.debug(`ID: ${reviewId}`);
     core.debug("Dismiss the existing review");
     await octokit.rest.pulls.dismissReview({
       ...context.repo,
