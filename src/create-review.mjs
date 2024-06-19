@@ -35,15 +35,15 @@ export async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const { data: reviews } = await octokit.rest.pulls.listReviews({
+  const reviewResponse = await octokit.rest.pulls.listReviews({
     ...context.payload.repository,
     pull_number: context.payload.number,
   });
-  core.debug(`Retrieved ${reviews.length} reviews`);
-  console.log(`reviews: ${JSON.stringify(reviews)}`);
+  console.log(`reviews: ${JSON.stringify(reviewResponse)}`);
+  core.debug(`Retrieved ${reviewResponse.data.length} reviews`);
 
   core.debug("Finding existing review");
-  const reviewId = reviews.find(
+  const reviewId = reviewResponse.data.find(
     (review) =>
       review.user.type === "Bot" &&
       review.state === "CHANGES_REQUESTED" &&
