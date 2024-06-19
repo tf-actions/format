@@ -8,8 +8,12 @@ const { context = {} } = github;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
+const reviewBody =
+  "# Terraform Formatting Review\n" +
+  "Some files in this pull request have formatting issues. " +
+  "Please run `terraform fmt` to fix them.";
 
-export async function createReview(reviewBody) {
+export async function createReview() {
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
@@ -25,13 +29,12 @@ export async function createReview(reviewBody) {
     },
     (response) =>
       response.data.map((file) => {
-        // We only care about .tf files
+        // We only care about Terraform code files
         if (extensions.includes(file.filename.split(".").pop().toLowerCase())) {
           return file.filename;
         }
       })
   );
-  // const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
   console.debug(
     `pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`
   );
@@ -49,10 +52,11 @@ export async function createReview(reviewBody) {
     },
     (response) =>
       response.data.map((review) => {
+        core.debug(`Review: ${JSON.stringify(review)}`);
         if (
           review.user.type === "Bot" &&
           review.state === "CHANGES_REQUESTED" &&
-          review.body === reviewBody
+          review.body.includes("Terraform Formatting Review")
         ) {
           return review;
         }
