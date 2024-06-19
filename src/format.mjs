@@ -1,12 +1,12 @@
 import * as core from "@actions/core";
-import * as github from "@actions/github";
+import { context } from "@actions/github";
 import { exec } from "@actions/exec";
 import { findTerraformCLI } from "./find-cli.mjs";
 import { createReview } from "./create-review.mjs";
 
 let createAReview = false;
 if (core.getBooleanInput("create-review", { required: true })) {
-  if (github.context.payload.pull_request) {
+  if (context.payload.pull_request) {
     createAReview = true;
   } else {
     core.warning(
