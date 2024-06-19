@@ -8,6 +8,8 @@ const { context = {} } = github;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
+const reviewTag = "<!-- oWretch/terraform-format review -->";
+// @TODO Move this back to an input variable.
 const reviewBody =
   "# Terraform Formatting Review\n" +
   "Some files in this pull request have formatting issues. " +
@@ -60,7 +62,7 @@ export async function createReview() {
           if (
             review.user.type === "Bot" &&
             review.state === "CHANGES_REQUESTED" &&
-            review.body.includes("Terraform Formatting Review")
+            review.body.includes(reviewTag)
           ) {
             core.debug(`Found existing review ID: ${review.id}`);
             return review.id;
@@ -69,6 +71,29 @@ export async function createReview() {
         .filter((n) => n)
   );
   core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
+
+  // @TODO Would be better to update the existing review...
+  // @TODO Also apporove the review if we have no outstanding comments.
+  // if (reviewIds.length > 0) {
+  //   if (reviewIds.length > 1) {
+  //     core.warning(
+  //       "Found more than one review for this action. Only using the first."
+  //     );
+  //   }
+  //   const reviewId = reviewIds[0];
+  //   // Get the existing comments from the review
+  //   core.debug("Listing review comments");
+  //   // Then close the resolved comments and add new ones for the changes
+  //   for (const comment of comments) {
+  //     core.debug("Posting comment");
+  //     await octokit.rest.pulls.createReviewComment({
+  //       ...context.repo,
+  //       pull_number: pull_request.number,
+  //       body: comment.body,
+  //       commit_id: pull_request.head.sha,
+  //     });
+  //   }
+  // }
 
   for (const reviewId of reviewIds) {
     core.debug("Dismiss the existing review");
@@ -82,17 +107,17 @@ export async function createReview() {
     core.debug("Hide the review comment");
     await octokit.graphql(
       `
-      mutation hideComment($id: ID!) {
-        minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
-          clientMutationId
-          minimizedComment {
-            isMinimized
-            minimizedReason
-            viewerCanMinimize
+        mutation hideComment($id: ID!) {
+          minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
+            clientMutationId
+            minimizedComment {
+              isMinimized
+              minimizedReason
+              viewerCanMinimize
+            }
           }
         }
-      }
-    `,
+      `,
       { id: reviewId }
     );
   }
@@ -103,7 +128,7 @@ export async function createReview() {
     await octokit.rest.pulls.createReview({
       ...context.repo,
       pull_number: pull_request.number,
-      body: reviewBody,
+      body: reviewBody + "\n" + reviewTag,
       event: "REQUEST_CHANGES",
       comments,
     });

@@ -32343,17 +32343,17 @@ async function createReview() {
     core.debug("Hide the review comment");
     await octokit.graphql(
       `
-      mutation hideComment($id: ID!) {
-        minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
-          clientMutationId
-          minimizedComment {
-            isMinimized
-            minimizedReason
-            viewerCanMinimize
+        mutation hideComment($id: ID!) {
+          minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
+            clientMutationId
+            minimizedComment {
+              isMinimized
+              minimizedReason
+              viewerCanMinimize
+            }
           }
         }
-      }
-    `,
+      `,
       { id: reviewId }
     );
   }
