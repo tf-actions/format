@@ -62,7 +62,7 @@ export async function createReview() {
           review.body.includes("Terraform Formatting Review")
         ) {
           core.debug(`Found existing review ID: ${review.id}`);
-          return review.id;
+          return review;
         }
       })
     // .filter((n) => n)
