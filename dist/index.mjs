@@ -32331,16 +32331,24 @@ async function createReview() {
   );
   core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
 
-  // if (reviewId) {
   for (const reviewId of reviewIds) {
-    core.debug("Dismiss the existing review");
-    await octokit.rest.pulls.dismissReview({
-      ...context.repo,
-      pull_number: pull_request.number,
-      review_id: reviewId,
-      message: "Superseeded by new review",
-      event: "DISMISSED",
-    });
+    core.debug("Delete the existing review");
+    await octokit.request(
+      "DELETE /repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
+      {
+        ...context.repo,
+        pull_number: pull_request.number,
+        review_id: reviewId,
+      }
+    );
+    //   core.debug("Dismiss the existing review");
+    //   await octokit.rest.pulls.dismissReview({
+    //     ...context.repo,
+    //     pull_number: pull_request.number,
+    //     review_id: reviewId,
+    //     message: "Superseeded by new review",
+    //     event: "DISMISSED",
+    //   });
   }
 
   // Post a new review if we have comments
