@@ -1,42 +1,43 @@
 import * as core from "@actions/core";
-import { context } from "@actions/github";
-import { Octokit } from "@octokit/rest";
+import * as github from "@actions/github";
 import {
   getChanges,
   createReviewComments,
 } from "./review-comments-from-git-diff.mjs";
+const { context = {} } = github;
+const { pull_request } = context.payload;
 
-const octokit = new Octokit({
-  auth: core.getInput("token", { required: true }),
-  baseUrl: core.getInput("api-url", { required: true }),
-});
+// const octokit = new Octokit({
+//   auth: core.getInput("token", { required: true }),
+//   baseUrl: core.getInput("api-url", { required: true }),
+// });
 
 export async function createReview(reviewBody) {
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
+  const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
   const pullRequestFiles = await octokit
     .paginate(
-      octokit.rest.pulls.listFiles({
-        ...context.payload.repository,
-        pull_number: context.payload.number,
+      octokit.pulls.listFiles({
+        ...context.repo,
+        pull_number: pull_request.number,
       })
     )
     .then((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
-  // const changes = await getChanges(pullRequestFiles);
   const changes = await getChanges(pullRequestFiles);
   const comments = createReviewComments(changes);
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviewResponse = await octokit.rest.pulls.listReviews({
-    ...context.payload.repository,
-    pull_number: context.payload.number,
+  const reviewResponse = await octokit.pulls.listReviews({
+    ...context.repo,
+    pull_number: pull_request.number,
   });
   console.log(`reviews: ${JSON.stringify(reviewResponse)}`);
   core.debug(`Retrieved ${reviewResponse.data.length} reviews`);
@@ -52,12 +53,9 @@ export async function createReview(reviewBody) {
 
   if (reviewId) {
     core.debug("Dismiss the existing review");
-    await octokit.rest.pulls.dismissReview({
-      ...context.payload.repository,
-      pull_number: context.payload.number,
-      // owner: "SoliDeoGloria-Tech",
-      // repo: "workflow-testing",
-      // pull_number: 1,
+    await octokit.pulls.dismissReview({
+      ...context.repo,
+      pull_number: pull_request.number,
       review_id: reviewId,
       message: "Superseeded by new review",
       event: "DISMISSED",
@@ -67,13 +65,9 @@ export async function createReview(reviewBody) {
   // Post a new review if we have comments
   if (comments.length > 0) {
     core.debug("Creating new review");
-    await octokit.rest.pulls.createReview({
-      ...context.payload.repository,
-      pull_number: context.payload.number,
-      // owner: "SoliDeoGloria-Tech",
-      // repo: "workflow-testing",
-      // pull_number: 1,
-      // event: "COMMENT",
+    await octokit.pulls.createReview({
+      ...context.repo,
+      pull_number: pull_request.number,
       body: reviewBody,
       event: "REQUEST_CHANGES",
       comments,
