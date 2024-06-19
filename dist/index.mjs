@@ -34908,6 +34908,7 @@ async function createReview(reviewBody) {
   const octokit = new dist_node.Octokit({
     auth: core.getInput("token", { required: true }),
     baseUrl: core.getInput("api-url", { required: true }),
+    log: console,
   });
 
   // Get list of files in the current pull request.
@@ -34920,12 +34921,10 @@ async function createReview(reviewBody) {
       })
     )
     .then((file) => file.filename);
-  // console.debug(`listFiles Response: ${JSON.stringify(response)}`);
-  // const pullRequestFiles = response.data.map((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
   // const changes = await getChanges(pullRequestFiles);
-  const changes = await getChanges();
+  const changes = await getChanges(pullRequestFiles);
   const comments = createReviewComments(changes);
 
   // Find the existing review, if it exists
