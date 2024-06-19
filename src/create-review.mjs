@@ -48,7 +48,7 @@ export async function createReview() {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const { id: reviewIds } = octokit.paginate(
+  const { id: reviewId } = octokit.paginate(
     octokit.rest.pulls.listReviews,
     {
       ...context.repo,
@@ -68,11 +68,10 @@ export async function createReview() {
         })
         .filter((n) => n)
   );
-  core.debug(`Review ID: ${JSON.stringify(reviewIds)}`);
+  core.debug(`Review ID: ${JSON.stringify(reviewId)}`);
 
-  for (const reviewId of reviewIds) {
+  if (reviewId) {
     core.debug("Dismiss the existing review");
-    core.debug(`Review ID: ${reviewId}`);
     await octokit.rest.pulls.dismissReview({
       ...context.repo,
       pull_number: pull_request.number,
