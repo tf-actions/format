@@ -7,10 +7,7 @@ import {
 const { context = {} } = github;
 const { pull_request } = context.payload;
 
-// const octokit = new Octokit({
-//   auth: core.getInput("token", { required: true }),
-//   baseUrl: core.getInput("api-url", { required: true }),
-// });
+const extensions = ["tf", "tfvars"];
 
 export async function createReview(reviewBody) {
   core.startGroup("Creating code review");
@@ -26,7 +23,13 @@ export async function createReview(reviewBody) {
       ...context.repo,
       pull_number: pull_request.number,
     },
-    (response) => response.data.map((file) => file.filename)
+    (response) =>
+      response.data.map((file) => {
+        // We only care about .tf files
+        if (extensions.includes(file.filename.split(".").pop().toLowerCase())) {
+          return file.filename;
+        }
+      })
   );
   // const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
   console.debug(
