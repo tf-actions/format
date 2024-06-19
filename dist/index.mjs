@@ -32340,6 +32340,14 @@ async function createReview() {
       message: "Superseeded by new review",
       event: "DISMISS",
     });
+    core.debug("Hide the review comment");
+    await octokit.graphql(`
+      mutation hideComment(${reviewId}: ID!) {
+        minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
+          clientMutationId
+        }
+      }
+    `);
   }
 
   // Post a new review if we have comments
