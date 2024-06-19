@@ -38,7 +38,7 @@ export async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  constreviewId = await octokit.paginate(
+  const reviewId = await octokit.paginate.iterator(
     octokit.rest.pulls.listReviews,
     {
       ...context.repo,
