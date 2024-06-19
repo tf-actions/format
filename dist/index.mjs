@@ -34930,25 +34930,21 @@ async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const { data: reviews } = await octokit.rest.pulls.listReviews({
-    ...github.context.payload.repository,
-    pull_number: github.context.payload.number,
-    // owner: "SoliDeoGloria-Tech",
-    // repo: "workflow-testing",
-    // pull_number: 1,
-  });
+  const reviews = octokit.paginate(
+    octokit.rest.pulls.listReviews({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+    })
+  );
   core.debug(`Retrieved ${reviews.length} reviews`);
   console.log(`reviews: ${JSON.stringify(reviews)}`);
+
   core.debug("Finding existing review");
   const reviewId = reviews.find(
     (review) =>
       review.user.type === "Bot" &&
       review.state === "CHANGES_REQUESTED" &&
       review.body === reviewBody
-    //   (review) =>
-    //     review.user.login === "oWretch" &&
-    //     review.state === "COMMENTED" &&
-    //     review.body === reviewBody
   )?.id;
   core.debug(`Review ID: ${reviewId}`);
 
