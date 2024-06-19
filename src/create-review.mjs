@@ -38,7 +38,7 @@ export async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviewId = await octokit.paginate.iterator(
+  const { id: reviewId } = octokit.paginate.iterator(
     octokit.rest.pulls.listReviews,
     {
       ...context.repo,
@@ -51,23 +51,16 @@ export async function createReview(reviewBody) {
           review.state === "CHANGES_REQUESTED" &&
           review.body === reviewBody
         ) {
-          return review.id;
+          return review;
         }
       })
   );
-  // core.debug(`Reviews: ${JSON.stringify(reviews)}`);
-
-  // const reviewId = reviews.data.find(
-  //   (review) =>
-  //     review.user.type === "Bot" &&
-  //     review.state === "CHANGES_REQUESTED" &&
-  //     review.body === reviewBody
-  // )?.id;
-  core.debug(`Review ID: ${reviewId}`);
+  core.info("Found existing review");
+  core.debug(`ID: ${JSON.stringify(reviewId)}`);
 
   if (reviewId) {
     core.debug("Dismiss the existing review");
-    await octokit.pulls.dismissReview({
+    await octokit.rest.pulls.dismissReview({
       ...context.repo,
       pull_number: pull_request.number,
       review_id: reviewId,
@@ -79,7 +72,7 @@ export async function createReview(reviewBody) {
   // Post a new review if we have comments
   if (comments.length > 0) {
     core.debug("Creating new review");
-    await octokit.pulls.createReview({
+    await octokit.rest.pulls.createReview({
       ...context.repo,
       pull_number: pull_request.number,
       body: reviewBody,
