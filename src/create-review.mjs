@@ -20,11 +20,15 @@ export async function createReview(reviewBody) {
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
-  const { data: pullRequestFiles } = await octokit.rest.pulls.listFiles({
-    ...context.repo,
-    pull_number: pull_request.number,
-  });
-  const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
+  const pullRequestFileNames = await octokit.paginate(
+    octokit.rest.pulls.listFiles,
+    {
+      ...context.repo,
+      pull_number: pull_request.number,
+    },
+    (response) => response.data.map((file) => file.filename)
+  );
+  // const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
   console.debug(
     `pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`
   );
