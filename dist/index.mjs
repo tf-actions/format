@@ -32269,8 +32269,12 @@ const { context = {} } = github_namespaceObject;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
+const reviewBody =
+  "# Terraform Formatting Review\n" +
+  "Some files in this pull request have formatting issues. " +
+  "Please run `terraform fmt` to fix them.";
 
-async function createReview(reviewBody) {
+async function createReview() {
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
@@ -32286,13 +32290,12 @@ async function createReview(reviewBody) {
     },
     (response) =>
       response.data.map((file) => {
-        // We only care about .tf files
+        // We only care about Terraform code files
         if (extensions.includes(file.filename.split(".").pop().toLowerCase())) {
           return file.filename;
         }
       })
   );
-  // const pullRequestFileNames = pullRequestFiles.map((file) => file.filename);
   console.debug(
     `pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`
   );
@@ -32310,10 +32313,11 @@ async function createReview(reviewBody) {
     },
     (response) =>
       response.data.map((review) => {
+        core.debug(`Review: ${JSON.stringify(review)}`);
         if (
           review.user.type === "Bot" &&
           review.state === "CHANGES_REQUESTED" &&
-          review.body === reviewBody
+          review.body.includes("Terraform Formatting Review")
         ) {
           return review;
         }
@@ -32462,7 +32466,7 @@ switch (exitCode) {
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
-let summary = await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary.addHeading(":x: Formatting needs to be updated")
+let summary = _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary.addHeading(":x: Formatting needs to be updated")
   .addSeparator()
   .addRaw(`Found ${files.length} files with formatting issues`, true)
   .addList(files);
@@ -32495,10 +32499,7 @@ if (createAReview) {
   await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(terraformCLI, args, { ignoreReturnCode: true, silent: true });
   _actions_core__WEBPACK_IMPORTED_MODULE_0__.endGroup();
 
-  await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_4__/* .createReview */ .X)(`
-    # Terraform Formatting Review
-    Some files in this pull request have formatting issues. Please run \`terraform fmt\` to fix them.
-  `);
+  await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_4__/* .createReview */ .X)();
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Terraform formatting needs to be updated");
 

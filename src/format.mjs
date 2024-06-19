@@ -62,7 +62,7 @@ switch (exitCode) {
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
-let summary = await core.summary
+let summary = core.summary
   .addHeading(":x: Formatting needs to be updated")
   .addSeparator()
   .addRaw(`Found ${files.length} files with formatting issues`, true)
@@ -96,9 +96,6 @@ if (createAReview) {
   await exec(terraformCLI, args, { ignoreReturnCode: true, silent: true });
   core.endGroup();
 
-  await createReview(`
-    # Terraform Formatting Review
-    Some files in this pull request have formatting issues. Please run \`terraform fmt\` to fix them.
-  `);
+  await createReview();
 }
 core.setFailed("Terraform formatting needs to be updated");
