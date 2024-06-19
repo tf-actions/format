@@ -80,13 +80,21 @@ export async function createReview() {
       event: "DISMISS",
     });
     core.debug("Hide the review comment");
-    await octokit.graphql(`
-      mutation hideComment(${reviewId}: ID!) {
+    await octokit.graphql(
+      `
+      mutation hideComment($id: ID!) {
         minimizeComment(input: {classifier: OUTDATED, subjectId: $id}) {
           clientMutationId
+          minimizedComment {
+            isMinimized
+            minimizedReason
+            viewerCanMinimize
+          }
         }
       }
-    `);
+    `,
+      { id: reviewId }
+    );
   }
 
   // Post a new review if we have comments
