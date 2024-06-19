@@ -13,17 +13,18 @@ export async function createReview(reviewBody) {
   core.debug("Creating octokit client");
   const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
-  // Get list of files in the current pull request.
-  // This means that we only post comments for files that have been changed in the PR.
-  let response = await octokit.rest.pulls.listFiles({
-    ...github.context.payload.repository,
-    pull_number: github.context.payload.number,
-  });
-  console.debug(`listFiles Response: ${JSON.stringify(response)}`);
-  const pullRequestFiles = response.data.map((file) => file.filename);
-  console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
+  // // Get list of files in the current pull request.
+  // // This means that we only post comments for files that have been changed in the PR.
+  // let response = await octokit.rest.pulls.listFiles({
+  //   ...github.context.payload.repository,
+  //   pull_number: github.context.payload.number,
+  // });
+  // console.debug(`listFiles Response: ${JSON.stringify(response)}`);
+  // const pullRequestFiles = response.data.map((file) => file.filename);
+  // console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
-  const changes = await getChanges(pullRequestFiles);
+  // const changes = await getChanges(pullRequestFiles);
+  const changes = await getChanges();
   const comments = createReviewComments(changes);
 
   // Find the existing review, if it exists
