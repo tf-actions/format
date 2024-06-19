@@ -32316,18 +32316,17 @@ async function createReview() {
       pull_number: pull_request.number,
     },
     (response) =>
-      response.data
-        .map((review) => {
-          if (
-            review.user.type === "Bot" &&
-            review.state === "CHANGES_REQUESTED" &&
-            review.body.includes("Terraform Formatting Review")
-          ) {
-            core.debug(`Found existing review ID: ${review.id}`);
-            return review.id;
-          }
-        })
-        .filter((n) => n)
+      response.data.map((review) => {
+        if (
+          review.user.type === "Bot" &&
+          review.state === "CHANGES_REQUESTED" &&
+          review.body.includes("Terraform Formatting Review")
+        ) {
+          core.debug(`Found existing review ID: ${review.id}`);
+          return review.id;
+        }
+      })
+    // .filter((n) => n)
   );
   core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
 
