@@ -32331,7 +32331,7 @@ async function createReview() {
         })
         .filter((n) => n)
   );
-
+  core.debug(`Review ID: ${JSON.stringify(reviewId)}`);
   if (reviewId) {
     core.debug("Dismiss the existing review");
     await octokit.rest.pulls.dismissReview({
