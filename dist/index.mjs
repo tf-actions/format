@@ -34899,16 +34899,15 @@ function createReviewComments(changes) {
 
 
 
+const octokit = new dist_node.Octokit({
+  auth: core.getInput("token", { required: true }),
+  baseUrl: core.getInput("api-url", { required: true }),
+});
+
 async function createReview(reviewBody) {
-  // const reviewBody =
-  //   "# Terraform Formatting Review\nSome files in this pull request have formatting issues. Please run `terraform fmt` to fix them.";
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
-  const octokit = new dist_node.Octokit({
-    auth: core.getInput("token", { required: true }),
-    baseUrl: core.getInput("api-url", { required: true }),
-  });
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.

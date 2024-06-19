@@ -6,16 +6,15 @@ import {
   createReviewComments,
 } from "./review-comments-from-git-diff.mjs";
 
+const octokit = new Octokit({
+  auth: core.getInput("token", { required: true }),
+  baseUrl: core.getInput("api-url", { required: true }),
+});
+
 export async function createReview(reviewBody) {
-  // const reviewBody =
-  //   "# Terraform Formatting Review\nSome files in this pull request have formatting issues. Please run `terraform fmt` to fix them.";
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
-  const octokit = new Octokit({
-    auth: core.getInput("token", { required: true }),
-    baseUrl: core.getInput("api-url", { required: true }),
-  });
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
