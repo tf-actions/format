@@ -1,112 +1,86 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { getExecOutput } from "@actions/exec";
-import parseGitDiff from "parse-git-diff";
-
-// Much of this file is taken from https://github.com/parkerbxyz/suggest-changes
-function generateSuggestionBody(changes) {
-  return changes
-    .filter(({ type }) => type === "AddedLine" || type === "UnchangedLine")
-    .map(({ content }) => content)
-    .join("\n");
-}
+import {
+  getChanges,
+  createReviewComments,
+} from "./review-comments-from-git-diff.mjs";
 
 export async function createReview(reviewBody) {
+  // const reviewBody =
+  //   "# Terraform Formatting Review\nSome files in this pull request have formatting issues. Please run `terraform fmt` to fix them.";
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
   const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
-  const pullRequestFiles = (
-    await octokit.rest.pulls.listFiles({
-      ...github.context.payload.repository,
-      pull_number: github.context.payload.number,
-    })
-  ).data.map((file) => file.filename);
+  // Get list of files in the current pull request.
+  // This means that we only post comments for files that have been changed in the PR.
+  let response = await octokit.rest.pulls.listFiles({
+    ...github.context.payload.repository,
+    pull_number: github.context.payload.number,
+    // owner: "SoliDeoGloria-Tech",
+    // repo: "workflow-testing",
+    // pull_number: 1,
+  });
+  const pullRequestFiles = response.data.map((file) => file.filename);
+  console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
-  const diff = await getExecOutput(
-    "git",
-    ["diff", "--unified=0", "--", ...pullRequestFiles],
-    {
-      silent: true,
-    }
-  );
+  const changes = await getChanges(pullRequestFiles);
+  const comments = createReviewComments(changes);
 
-  core.debug(`Git diff: ${diff.stdout}`);
-
-  const changedFiles = parseGitDiff(diff.stdout).files.filter(
-    (/** @type {{ type: string; }} */ file) => file.type === "ChangedFile"
-  );
-
-  // Create an array of comments with suggested changes for each chunk of each changed file
-  const comments = changedFiles.flatMap(({ path, chunks }) =>
-    chunks.map(({ fromFileRange, changes }) => ({
-      path,
-      start_line: fromFileRange.start,
-      // The last line of the chunk is the start line plus the number of lines in the chunk
-      // minus 1 to account for the start line being included in fromFileRange.lines
-      line: fromFileRange.start + fromFileRange.lines - 1,
-      start_side: "RIGHT",
-      side: "RIGHT",
-      // Quadruple backticks allow for triple backticks in a fenced code block in the suggestion body
-      // https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#fenced-code-blocks
-      body: "````suggestion\n" + generateSuggestionBody(changes) + "\n````",
-    }))
-  );
-
+  // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
   const { data: reviews } = await octokit.rest.pulls.listReviews({
     ...github.context.payload.repository,
     pull_number: github.context.payload.number,
+    // owner: "SoliDeoGloria-Tech",
+    // repo: "workflow-testing",
+    // pull_number: 1,
   });
-  core.debug(`Retrieved ${length(reviews)} reviews`);
-
+  core.debug(`Retrieved ${reviews.length} reviews`);
+  console.log(`reviews: ${JSON.stringify(reviews)}`);
   core.debug("Finding existing review");
   const reviewId = reviews.find(
-    (review) => review.user.type === "Bot" && review.body === reviewBody
+    (review) =>
+      review.user.type === "Bot" &&
+      review.state === "CHANGES_REQUESTED" &&
+      review.body === reviewBody
+    //   (review) =>
+    //     review.user.login === "oWretch" &&
+    //     review.state === "COMMENTED" &&
+    //     review.body === reviewBody
   )?.id;
   core.debug(`Review ID: ${reviewId}`);
 
-  let query;
   if (reviewId) {
-    // I think we need to delete and recreate as it seems the update
-    // can't update the comments associated with the review, only the review itself
-    core.debug(`Updating review ${reviewId}`);
-    query = `
-      mutation UpdateReview{
-        updatePullRequestReview(input: {
-          pullRequestReviewId: "${reviewId}",
-          body: ${reviewBody},
-          comments: ${comments},
-          commitOID: ${github.context.sha},
-          event: REQUEST_CHANGES
-        }) {
-          pullRequestReview {
-            updatedAt
-          }
-        }
-      }
-    `;
-  } else {
-    core.debug("Creating new review");
-    query = `
-      mutation CreateReview{
-        addPullRequestReview(input: {
-          pullRequestId: "${github.context.payload.pull_request.id}",
-          body: ${reviewBody},
-          comments: ${comments},
-          commitOID: ${github.context.sha},
-          event: REQUEST_CHANGES
-        }) {
-          pullRequestReview {
-            createdAt
-          }
-        }
-      }
-    `;
+    core.debug("Dismiss the existing review");
+    await octokit.rest.pulls.dismissReview({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+      // owner: "SoliDeoGloria-Tech",
+      // repo: "workflow-testing",
+      // pull_number: 1,
+      review_id: reviewId,
+      message: "Superseeded by new review",
+      event: "DISMISSED",
+    });
   }
-  core.debug(`query: ${query}`);
-  await octokit.graphql(query);
+
+  // Post a new review if we have comments
+  if (comments.length > 0) {
+    core.debug("Creating new review");
+    await octokit.rest.pulls.createReview({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+      // owner: "SoliDeoGloria-Tech",
+      // repo: "workflow-testing",
+      // pull_number: 1,
+      // event: "COMMENT",
+      body: reviewBody,
+      event: "REQUEST_CHANGES",
+      comments,
+    });
+  }
   core.info("Review created");
   core.endGroup();
 }
