@@ -32126,7 +32126,7 @@ module.exports = parseParams
 
 /***/ }),
 
-/***/ 1667:
+/***/ 6066:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 
@@ -32141,478 +32141,206 @@ var core = __nccwpck_require__(30);
 var github = __nccwpck_require__(5139);
 // EXTERNAL MODULE: ./node_modules/@actions/exec/lib/exec.js
 var exec = __nccwpck_require__(4006);
-;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/context.js
-class Context {
-    line = 1;
-    lines = [];
-    options = {
-        noPrefix: false,
-    };
-    constructor(diff, options) {
-        this.lines = diff.split('\n');
-        this.options.noPrefix = !!options?.noPrefix;
-    }
-    getCurLine() {
-        return this.lines[this.line - 1];
-    }
-    nextLine() {
-        this.line++;
-        return this.getCurLine();
-    }
-    isEof() {
-        return this.line > this.lines.length;
-    }
-}
-//# sourceMappingURL=context.js.map
-;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/constants.js
-const LineType = {
-    Added: 'AddedLine',
-    Deleted: 'DeletedLine',
-    Unchanged: 'UnchangedLine',
-    Message: 'MessageLine',
-};
-const FileType = {
-    Changed: 'ChangedFile',
-    Added: 'AddedFile',
-    Deleted: 'DeletedFile',
-    Renamed: 'RenamedFile',
-};
-const ExtendedHeader = {
-    Index: 'index',
-    Old: 'old',
-    Copy: 'copy',
-    Similarity: 'similarity',
-    Dissimilarity: 'dissimilarity',
-    Deleted: 'deleted',
-    NewFile: 'new file',
-    RenameFrom: 'rename from',
-    RenameTo: 'rename to',
-};
-const ExtendedHeaderValues = Object.values(ExtendedHeader);
-//# sourceMappingURL=constants.js.map
-;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/parse-git-diff.js
+;// CONCATENATED MODULE: ./src/review-comments-from-git-diff.mjs
 
 
-function parseGitDiff(diff, options) {
-    const ctx = new Context(diff, options);
-    const files = parseFileChanges(ctx);
-    return {
-        type: 'GitDiff',
-        files,
-    };
-}
-function parseFileChanges(ctx) {
-    const changedFiles = [];
-    while (!ctx.isEof()) {
-        const changed = parseFileChange(ctx);
-        if (!changed) {
-            break;
-        }
-        changedFiles.push(changed);
-    }
-    return changedFiles;
-}
-function parseFileChange(ctx) {
-    if (!isComparisonInputLine(ctx.getCurLine())) {
-        return;
-    }
-    ctx.nextLine();
-    let isDeleted = false;
-    let isNew = false;
-    let isRename = false;
-    let pathBefore = '';
-    let pathAfter = '';
-    while (!ctx.isEof()) {
-        const extHeader = parseExtendedHeader(ctx);
-        if (!extHeader) {
-            break;
-        }
-        if (extHeader.type === ExtendedHeader.Deleted)
-            isDeleted = true;
-        if (extHeader.type === ExtendedHeader.NewFile)
-            isNew = true;
-        if (extHeader.type === ExtendedHeader.RenameFrom) {
-            isRename = true;
-            pathBefore = extHeader.path;
-        }
-        if (extHeader.type === ExtendedHeader.RenameTo) {
-            isRename = true;
-            pathAfter = extHeader.path;
-        }
-    }
-    const changeMarkers = parseChangeMarkers(ctx);
-    const chunks = parseChunks(ctx);
-    if (isDeleted && changeMarkers) {
-        return {
-            type: FileType.Deleted,
-            chunks,
-            path: changeMarkers.deleted,
-        };
-    }
-    else if (isDeleted &&
-        chunks.length &&
-        chunks[0].type === 'BinaryFilesChunk') {
-        return {
-            type: FileType.Deleted,
-            chunks,
-            path: chunks[0].pathBefore,
-        };
-    }
-    else if (isNew && changeMarkers) {
-        return {
-            type: FileType.Added,
-            chunks,
-            path: changeMarkers.added,
-        };
-    }
-    else if (isNew && chunks.length && chunks[0].type === 'BinaryFilesChunk') {
-        return {
-            type: FileType.Added,
-            chunks,
-            path: chunks[0].pathAfter,
-        };
-    }
-    else if (isRename) {
-        return {
-            type: FileType.Renamed,
-            pathAfter,
-            pathBefore,
-            chunks,
-        };
-    }
-    else if (changeMarkers) {
-        return {
-            type: FileType.Changed,
-            chunks,
-            path: changeMarkers.added,
-        };
-    }
-    else if (chunks.length &&
-        chunks[0].type === 'BinaryFilesChunk' &&
-        chunks[0].pathAfter) {
-        return {
-            type: FileType.Changed,
-            chunks,
-            path: chunks[0].pathAfter,
-        };
-    }
-    return;
-}
-function isComparisonInputLine(line) {
-    return line.indexOf('diff') === 0;
-}
-function parseChunks(context) {
-    const chunks = [];
-    while (!context.isEof()) {
-        const chunk = parseChunk(context);
-        if (!chunk) {
-            break;
-        }
-        chunks.push(chunk);
-    }
-    return chunks;
-}
-function parseChunk(context) {
-    const chunkHeader = parseChunkHeader(context);
-    if (!chunkHeader) {
-        return;
-    }
-    if (chunkHeader.type === 'Normal') {
-        const changes = parseChanges(context, chunkHeader.fromFileRange, chunkHeader.toFileRange);
-        return {
-            ...chunkHeader,
-            type: 'Chunk',
-            changes,
-        };
-    }
-    else if (chunkHeader.type === 'Combined' &&
-        chunkHeader.fromFileRangeA &&
-        chunkHeader.fromFileRangeB) {
-        const changes = parseChanges(context, chunkHeader.fromFileRangeA.start < chunkHeader.fromFileRangeB.start
-            ? chunkHeader.fromFileRangeA
-            : chunkHeader.fromFileRangeB, chunkHeader.toFileRange);
-        return {
-            ...chunkHeader,
-            type: 'CombinedChunk',
-            changes,
-        };
-    }
-    else if (chunkHeader.type === 'BinaryFiles' &&
-        chunkHeader.fileA &&
-        chunkHeader.fileB) {
-        return {
-            type: 'BinaryFilesChunk',
-            pathBefore: chunkHeader.fileA,
-            pathAfter: chunkHeader.fileB,
-        };
-    }
-}
-function parseExtendedHeader(ctx) {
-    const line = ctx.getCurLine();
-    const type = ExtendedHeaderValues.find((v) => line.startsWith(v));
-    if (type) {
-        ctx.nextLine();
-    }
-    if (type === ExtendedHeader.RenameFrom || type === ExtendedHeader.RenameTo) {
-        return {
-            type,
-            path: line.slice(`${type} `.length),
-        };
-    }
-    else if (type) {
-        return {
-            type,
-        };
-    }
-    return null;
-}
-function parseChunkHeader(ctx) {
-    const line = ctx.getCurLine();
-    const normalChunkExec = /^@@\s\-(\d+),?(\d+)?\s\+(\d+),?(\d+)?\s@@\s?(.+)?/.exec(line);
-    if (!normalChunkExec) {
-        const combinedChunkExec = /^@@@\s\-(\d+),?(\d+)?\s\-(\d+),?(\d+)?\s\+(\d+),?(\d+)?\s@@@\s?(.+)?/.exec(line);
-        if (!combinedChunkExec) {
-            const binaryChunkExec = /^Binary\sfiles\s(.*)\sand\s(.*)\sdiffer$/.exec(line);
-            if (binaryChunkExec) {
-                const [all, fileA, fileB] = binaryChunkExec;
-                ctx.nextLine();
-                return {
-                    type: 'BinaryFiles',
-                    fileA: getFilePath(ctx, fileA, 'src'),
-                    fileB: getFilePath(ctx, fileB, 'dst'),
-                };
-            }
-            return null;
-        }
-        const [all, delStartA, delLinesA, delStartB, delLinesB, addStart, addLines, context,] = combinedChunkExec;
-        ctx.nextLine();
-        return {
-            context,
-            type: 'Combined',
-            fromFileRangeA: getRange(delStartA, delLinesA),
-            fromFileRangeB: getRange(delStartB, delLinesB),
-            toFileRange: getRange(addStart, addLines),
-        };
-    }
-    const [all, delStart, delLines, addStart, addLines, context] = normalChunkExec;
-    ctx.nextLine();
-    return {
-        context,
-        type: 'Normal',
-        toFileRange: getRange(addStart, addLines),
-        fromFileRange: getRange(delStart, delLines),
-    };
-}
-function getRange(start, lines) {
-    const startNum = parseInt(start, 10);
-    return {
-        start: startNum,
-        lines: lines === undefined ? startNum : parseInt(lines, 10),
-    };
-}
-function parseChangeMarkers(context) {
-    const deleterMarker = parseMarker(context, '--- ');
-    const deleted = deleterMarker
-        ? getFilePath(context, deleterMarker, 'src')
-        : deleterMarker;
-    const addedMarker = parseMarker(context, '+++ ');
-    const added = addedMarker
-        ? getFilePath(context, addedMarker, 'dst')
-        : addedMarker;
-    return added && deleted ? { added, deleted } : null;
-}
-function parseMarker(context, marker) {
-    const line = context.getCurLine();
-    if (line?.startsWith(marker)) {
-        context.nextLine();
-        return line.replace(marker, '');
-    }
-    return null;
-}
-const CHAR_TYPE_MAP = {
-    '+': LineType.Added,
-    '-': LineType.Deleted,
-    ' ': LineType.Unchanged,
-    '\\': LineType.Message,
-};
-function parseChanges(ctx, rangeBefore, rangeAfter) {
-    const changes = [];
-    let lineBefore = rangeBefore.start;
-    let lineAfter = rangeAfter.start;
-    while (!ctx.isEof()) {
-        const line = ctx.getCurLine();
-        const type = getLineType(line);
-        if (!type) {
-            break;
-        }
-        ctx.nextLine();
-        let change;
-        const content = line.slice(1);
-        switch (type) {
-            case LineType.Added: {
-                change = {
-                    type,
-                    lineAfter: lineAfter++,
-                    content,
-                };
-                break;
-            }
-            case LineType.Deleted: {
-                change = {
-                    type,
-                    lineBefore: lineBefore++,
-                    content,
-                };
-                break;
-            }
-            case LineType.Unchanged: {
-                change = {
-                    type,
-                    lineBefore: lineBefore++,
-                    lineAfter: lineAfter++,
-                    content,
-                };
-                break;
-            }
-            case LineType.Message: {
-                change = {
-                    type,
-                    content: content.trim(),
-                };
-                break;
-            }
-        }
-        changes.push(change);
-    }
-    return changes;
-}
-function getLineType(line) {
-    return CHAR_TYPE_MAP[line[0]] || null;
-}
-function getFilePath(ctx, input, type) {
-    if (ctx.options.noPrefix) {
-        return input;
-    }
-    if (type === 'src')
-        return input.replace(/^a\//, '');
-    if (type === 'dst')
-        return input.replace(/^b\//, '');
-}
-//# sourceMappingURL=parse-git-diff.js.map
-;// CONCATENATED MODULE: ./node_modules/parse-git-diff/build/mjs/index.js
+async function getChanges(files = []) {
+  let args = [
+    "diff",
+    "--minimal", // Minimal diff
+    "--unified=0", // No context lines
+    "--no-color", // No color codes
+  ];
+  if (files.length > 0) {
+    args = args.concat(["--", ...files]);
+  }
+  console.log(`args: ${args}`);
+  const diff = await (0,exec.getExecOutput)("git", args, { silent: true });
 
-/* harmony default export */ const mjs = (parseGitDiff);
-//# sourceMappingURL=index.js.map
+  let changes = [];
+  diff.stdout
+    .split("diff --git")
+    .filter((n) => n)
+    .forEach(function (item) {
+      // Split the output lines into an array
+      let lines = item.split("\n");
+
+      // Skip the header lines
+      while (!lines[0].startsWith("---")) {
+        lines.shift();
+      }
+
+      // Get the file names
+      const fromFile = lines.shift().replace("--- a/", "");
+      const toFile = lines.shift().replace("+++ b/", "");
+
+      // Split the file diff into chunks
+      const diffChunks = lines
+        .join("\n")
+        .split(/@@ (-\d+(?:,\d+)? \+\d+(?:,\d+)?) @@/)
+        .filter((n) => n);
+
+      for (let i = 0; i < diffChunks.length; i += 2) {
+        const fileRanges = diffChunks[i].replace(/[-\+]/g, "").split(" ");
+        const changedLines = diffChunks[i + 1].split("\n"); //.filter((n) => n);
+        let contextStart = "";
+        while (
+          !(changedLines[0].startsWith("-") || changedLines[0].startsWith("+"))
+        ) {
+          contextStart += changedLines.shift() + "\n";
+        }
+
+        let contextEnd = "";
+        while (
+          !(
+            changedLines[changedLines.length - 1].startsWith("-") ||
+            changedLines[changedLines.length - 1].startsWith("+")
+          )
+        ) {
+          contextEnd = changedLines.pop() + "\n" + contextEnd;
+        }
+
+        let oldContent = "";
+        let newContent = "";
+        while (changedLines.length > 0) {
+          let line = changedLines.shift();
+          if (line.startsWith("-")) {
+            oldContent += line.replace(/- ?/, "") + "\n";
+          } else if (line.startsWith("+")) {
+            newContent += line.replace(/\+ ?/, "") + "\n";
+          } else {
+            oldContent += line.replace(/ ? ?/, "") + "\n";
+            newContent += line.replace(/ ? ?/, "") + "\n";
+          }
+        }
+
+        changes.push({
+          fromFile: {
+            name: fromFile,
+            start_line: Number(fileRanges[0].split(",")[0]),
+            line_count: Number(fileRanges[0].split(",")[1]) || 1,
+            content: oldContent,
+          },
+          toFile: {
+            name: toFile,
+            start_line: Number(fileRanges[1].split(",")[0]),
+            line_count: Number(fileRanges[1].split(",")[1]) || 1,
+            content: newContent,
+          },
+          context: {
+            start: contextStart,
+            end: contextEnd,
+          },
+        });
+      }
+    });
+  return changes;
+}
+
+function createReviewComments(changes) {
+  let comments = [];
+  for (const change of changes) {
+    let comment = {
+      path: change.toFile.name,
+      body: "````suggestion\n" + change.toFile.content + "````",
+    };
+
+    // line is the last line to which the comment applies
+    if (Math.max(change.fromFile.line_count, change.toFile.line_count) == 1) {
+      comment.line = change.toFile.start_line;
+    } else {
+      comment.start_line = change.toFile.start_line;
+      comment.line =
+        change.toFile.start_line +
+        (Math.max(change.fromFile.line_count, change.toFile.line_count) - 1);
+    }
+    comments.push(comment);
+  }
+
+  return comments;
+}
+
 ;// CONCATENATED MODULE: ./src/create-review.mjs
 
 
 
 
-
-// Much of this file is taken from https://github.com/parkerbxyz/suggest-changes
-function generateSuggestionBody(changes) {
-  return changes
-    .filter(({ type }) => type === "AddedLine" || type === "UnchangedLine")
-    .map(({ content }) => content)
-    .join("\n");
-}
-
 async function createReview(reviewBody) {
+  // const reviewBody =
+  //   "# Terraform Formatting Review\nSome files in this pull request have formatting issues. Please run `terraform fmt` to fix them.";
   core.startGroup("Creating code review");
 
   core.debug("Creating octokit client");
   const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
-  const pullRequestFiles = (
-    await octokit.rest.pulls.listFiles({
-      ...github.context.payload.repository,
-      pull_number: github.context.payload.number,
-    })
-  ).data.map((file) => file.filename);
+  // Get list of files in the current pull request.
+  // This means that we only post comments for files that have been changed in the PR.
+  let response = await octokit.rest.pulls.listFiles({
+    ...github.context.payload.repository,
+    pull_number: github.context.payload.number,
+    // owner: "SoliDeoGloria-Tech",
+    // repo: "workflow-testing",
+    // pull_number: 1,
+  });
+  const pullRequestFiles = response.data.map((file) => file.filename);
+  console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
-  const diff = await (0,exec.getExecOutput)(
-    "git",
-    ["diff", "--unified=0", "--", ...pullRequestFiles],
-    {
-      silent: true,
-    }
-  );
+  const changes = await getChanges(pullRequestFiles);
+  const comments = createReviewComments(changes);
 
-  core.debug(`Git diff: ${diff.stdout}`);
-
-  const changedFiles = mjs(diff.stdout).files.filter(
-    (/** @type {{ type: string; }} */ file) => file.type === "ChangedFile"
-  );
-
-  // Create an array of comments with suggested changes for each chunk of each changed file
-  const comments = changedFiles.flatMap(({ path, chunks }) =>
-    chunks.map(({ fromFileRange, changes }) => ({
-      path,
-      start_line: fromFileRange.start,
-      // The last line of the chunk is the start line plus the number of lines in the chunk
-      // minus 1 to account for the start line being included in fromFileRange.lines
-      line: fromFileRange.start + fromFileRange.lines - 1,
-      start_side: "RIGHT",
-      side: "RIGHT",
-      // Quadruple backticks allow for triple backticks in a fenced code block in the suggestion body
-      // https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#fenced-code-blocks
-      body: "````suggestion\n" + generateSuggestionBody(changes) + "\n````",
-    }))
-  );
-
+  // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
   const { data: reviews } = await octokit.rest.pulls.listReviews({
     ...github.context.payload.repository,
     pull_number: github.context.payload.number,
+    // owner: "SoliDeoGloria-Tech",
+    // repo: "workflow-testing",
+    // pull_number: 1,
   });
-  core.debug(`Retrieved ${length(reviews)} reviews`);
-
+  core.debug(`Retrieved ${reviews.length} reviews`);
+  console.log(`reviews: ${JSON.stringify(reviews)}`);
   core.debug("Finding existing review");
   const reviewId = reviews.find(
-    (review) => review.user.type === "Bot" && review.body === reviewBody
+    (review) =>
+      review.user.type === "Bot" &&
+      review.state === "CHANGES_REQUESTED" &&
+      review.body === reviewBody
+    //   (review) =>
+    //     review.user.login === "oWretch" &&
+    //     review.state === "COMMENTED" &&
+    //     review.body === reviewBody
   )?.id;
   core.debug(`Review ID: ${reviewId}`);
 
-  let query;
   if (reviewId) {
-    // I think we need to delete and recreate as it seems the update
-    // can't update the comments associated with the review, only the review itself
-    core.debug(`Updating review ${reviewId}`);
-    query = `
-      mutation UpdateReview{
-        updatePullRequestReview(input: {
-          pullRequestReviewId: "${reviewId}",
-          body: ${reviewBody},
-          comments: ${comments},
-          commitOID: ${github.context.sha},
-          event: REQUEST_CHANGES
-        }) {
-          pullRequestReview {
-            updatedAt
-          }
-        }
-      }
-    `;
-  } else {
-    core.debug("Creating new review");
-    query = `
-      mutation CreateReview{
-        addPullRequestReview(input: {
-          pullRequestId: "${github.context.payload.pull_request.id}",
-          body: ${reviewBody},
-          comments: ${comments},
-          commitOID: ${github.context.sha},
-          event: REQUEST_CHANGES
-        }) {
-          pullRequestReview {
-            createdAt
-          }
-        }
-      }
-    `;
+    core.debug("Dismiss the existing review");
+    await octokit.rest.pulls.dismissReview({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+      // owner: "SoliDeoGloria-Tech",
+      // repo: "workflow-testing",
+      // pull_number: 1,
+      review_id: reviewId,
+      message: "Superseeded by new review",
+      event: "DISMISSED",
+    });
   }
-  core.debug(`query: ${query}`);
-  await octokit.graphql(query);
+
+  // Post a new review if we have comments
+  if (comments.length > 0) {
+    core.debug("Creating new review");
+    await octokit.rest.pulls.createReview({
+      ...github.context.payload.repository,
+      pull_number: github.context.payload.number,
+      // owner: "SoliDeoGloria-Tech",
+      // repo: "workflow-testing",
+      // pull_number: 1,
+      // event: "COMMENT",
+      body: reviewBody,
+      event: "REQUEST_CHANGES",
+      comments,
+    });
+  }
   core.info("Review created");
   core.endGroup();
 }
@@ -32667,7 +32395,7 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5139);
 /* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(4006);
 /* harmony import */ var _find_cli_mjs__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9717);
-/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(1667);
+/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(6066);
 
 
 
