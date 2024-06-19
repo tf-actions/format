@@ -14,16 +14,21 @@ export async function createReview(reviewBody) {
   core.debug("Creating octokit client");
   const octokit = new Octokit({
     auth: core.getInput("token", { required: true }),
+    baseUrl: core.getInput("api-url", { required: true }),
   });
 
   // Get list of files in the current pull request.
   // This means that we only post comments for files that have been changed in the PR.
-  let response = await octokit.rest.pulls.listFiles({
-    ...context.payload.repository,
-    pull_number: context.payload.number,
-  });
-  console.debug(`listFiles Response: ${JSON.stringify(response)}`);
-  const pullRequestFiles = response.data.map((file) => file.filename);
+  const pullRequestFiles = octokit
+    .paginate(
+      octokit.rest.pulls.listFiles({
+        ...context.payload.repository,
+        pull_number: context.payload.number,
+      })
+    )
+    .then((file) => file.filename);
+  // console.debug(`listFiles Response: ${JSON.stringify(response)}`);
+  // const pullRequestFiles = response.data.map((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
   // const changes = await getChanges(pullRequestFiles);

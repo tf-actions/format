@@ -17,6 +17,9 @@ inputs:
   token:
     description: GitHub token to create a code review
     required: true
+  api-url:
+    description: GitHub API URL. Defaults to https://api.github.com
+    default: https://api.github.com
 runs:
   using: node20
   main: dist/index.mjs
