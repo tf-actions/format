@@ -32278,10 +32278,8 @@ async function createReview(reviewBody) {
   let response = await octokit.rest.pulls.listFiles({
     ...github.context.payload.repository,
     pull_number: github.context.payload.number,
-    // owner: "SoliDeoGloria-Tech",
-    // repo: "workflow-testing",
-    // pull_number: 1,
   });
+  console.debug(`listFiles Response: ${JSON.stringify(response)}`);
   const pullRequestFiles = response.data.map((file) => file.filename);
   console.debug(`pullRequestFiles: ${JSON.stringify(pullRequestFiles)}`);
 
@@ -32489,7 +32487,7 @@ if (createAReview) {
   if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
     args.push("-recursive");
   }
-  await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(terraformCLI, args);
+  await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(terraformCLI, args, { ignoreReturnCode: true, silent: true });
   _actions_core__WEBPACK_IMPORTED_MODULE_0__.endGroup();
 
   await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_4__/* .createReview */ .X)(`
