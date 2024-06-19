@@ -34928,7 +34928,7 @@ async function createReview(reviewBody) {
 
   // Find the existing review, if it exists
   core.debug("Listing reviews on the pull request");
-  const reviews = await octokit.rest.pulls.listReviews({
+  const { data: reviews } = await octokit.rest.pulls.listReviews({
     ...github.context.payload.repository,
     pull_number: github.context.payload.number,
   });
