@@ -2,6 +2,9 @@ name: Terraform Formatting
 description: Format a Terraform configuration, and optionally post a code review on the pull request highlighting issues.
 author: oWretch
 inputs:
+  cli-path:
+    description: Path to the cli executable to use
+    required: false
   init:
     description: Run terraform init before validating
     required: true

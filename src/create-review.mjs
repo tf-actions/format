@@ -9,15 +9,12 @@ const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
 const reviewTag = "<!-- oWretch/terraform-format review -->";
-// @TODO Move this back to an input variable.
 const reviewBody =
-  "# Terraform Formatting Review\n" +
+  "# Formatting Review\n" +
   "Some files in this pull request have formatting issues. " +
-  "Please run `terraform fmt` to fix them.";
+  `Please run \`${cliName} fmt\` to fix them.`;
 
 export async function createReview() {
-  core.startGroup("Creating code review");
-
   core.debug("Creating octokit client");
   const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
@@ -73,7 +70,7 @@ export async function createReview() {
   core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
 
   // @TODO Would be better to update the existing review...
-  // @TODO Also apporove the review if we have no outstanding comments.
+  // @TODO Also approve the review if we have no outstanding comments.
   // if (reviewIds.length > 0) {
   //   if (reviewIds.length > 1) {
   //     core.warning(
@@ -134,5 +131,4 @@ export async function createReview() {
     });
   }
   core.info("Review created");
-  core.endGroup();
 }
