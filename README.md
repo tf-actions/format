@@ -9,6 +9,10 @@ A summary will be posted with details of any validation errors.
 
 ## Inputs
 
+### `cli-path`
+
+Description: Path to the cli binary to use for executing commands. By default the action will look for the binary using the `TOFU_CLI_PATH` and `TERRAFORM_CLI_PATH` variables.
+
 ### `token`
 
 Description: The GitHub token to use for interacting with the repostiory

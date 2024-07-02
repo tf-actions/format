@@ -17,13 +17,23 @@ if (core.getBooleanInput("create-review", { required: true })) {
 
 core.debug("Starting Terraform formatting validation");
 
-const terraformCLI = await findTerraformCLI();
-core.debug(`Terraform CLI found at ${terraformCLI}`);
+const cli = await findCLI();
+cliName = "";
+switch (cli.split(path.sep).pop()) {
+  case "tofu":
+  case "tofu-bin":
+    cliName = "tofu";
+    break;
+  case "terraform":
+  case "terraform-bin":
+    cliName = "terraform";
+    break;
+  default:
+    cliName = cli.split(path.sep).pop();
+}
 
 if (core.getBooleanInput("init", { required: true })) {
-  core.startGroup("Running terraform init");
-  await exec(terraformCLI, ["init", "-backend=false"]);
-  core.endGroup();
+  await exec(cli, ["init", "-backend=false"]);
 }
 
 let stdout = "";
@@ -44,12 +54,12 @@ let args = ["fmt", "-check"];
 if (core.getBooleanInput("recursive", { required: true })) {
   args.push("-recursive");
 }
-core.debug(`Running: terraform fmt ${args.join(" ")}`);
-const exitCode = await exec(terraformCLI, args, options);
-core.debug(`Terraform fmt exit code: ${exitCode}`);
+core.debug(`Running: ${cli} ${args.join(" ")}`);
+const exitCode = await exec(cli, args, options);
+core.debug(`Exit code: ${exitCode}`);
 switch (exitCode) {
   case 0:
-    core.info("Terraform configuration is formatted correctly");
+    core.info("Configuration is formatted correctly");
     await core.summary
       .addHeading(":white_check_mark: Formatting is correct")
       .write();
@@ -58,7 +68,7 @@ switch (exitCode) {
     // Terraform fmt returns 3 if there are formatting errors to be corrected
     break;
   default:
-    core.setFailed(`Terraform fmt failed with exit code ${exitCode}`);
+    core.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
@@ -70,7 +80,7 @@ let summary = core.summary
 
 if (!createAReview) {
   summary.addRaw(
-    "Please run `terraform fmt` locally to fix the formatting issues",
+    `Please run \`${cliName} fmt\` locally to fix the formatting issues`,
     true
   );
 }
@@ -88,14 +98,12 @@ for (const file of files) {
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
   core.info("Creating a review to fix the formatting issues");
-  core.startGroup("Running terraform fmt to correct the formatting issues");
   args = ["fmt"];
   if (core.getBooleanInput("recursive", { required: true })) {
     args.push("-recursive");
   }
-  await exec(terraformCLI, args, { ignoreReturnCode: true, silent: true });
-  core.endGroup();
+  await exec(cli, args, { ignoreReturnCode: true, silent: true });
 
   await createReview();
 }
-core.setFailed("Terraform formatting needs to be updated");
+core.setFailed("Formatting needs to be updated");
