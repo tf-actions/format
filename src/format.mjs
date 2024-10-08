@@ -17,7 +17,7 @@ if (core.getBooleanInput("create-review", { required: true })) {
 	}
 }
 
-let workingDirectory = os.getEnv("GITHUB_WORKSPACE");
+let workingDirectory = process.env.GITHUB_WORKSPACE;
 if (core.getInput("working_directory")) {
 	workingDirectory = path.join(
 		workingDirectory,

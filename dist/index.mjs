@@ -32170,7 +32170,7 @@ if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", 
 	}
 }
 
-let workingDirectory = node_os__WEBPACK_IMPORTED_MODULE_1__.getEnv("GITHUB_WORKSPACE");
+let workingDirectory = process.env.GITHUB_WORKSPACE;
 if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("working_directory")) {
 	workingDirectory = node_path__WEBPACK_IMPORTED_MODULE_2__.join(
 		workingDirectory,
