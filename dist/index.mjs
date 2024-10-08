@@ -32160,7 +32160,7 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 
 
 let createAReview = false;
-if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true })) {
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create_review", { required: true })) {
 	if (_actions_github__WEBPACK_IMPORTED_MODULE_3__.context.payload.pull_request) {
 		createAReview = true;
 	} else {

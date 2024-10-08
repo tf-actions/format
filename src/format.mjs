@@ -7,7 +7,7 @@ import { findCLI } from "./lib/find-cli.mjs";
 import { createReview } from "./lib/create-review.mjs";
 
 let createAReview = false;
-if (core.getBooleanInput("create-review", { required: true })) {
+if (core.getBooleanInput("create_review", { required: true })) {
 	if (context.payload.pull_request) {
 		createAReview = true;
 	} else {
