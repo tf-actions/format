@@ -18,7 +18,7 @@ if (core.getBooleanInput("create-review", { required: true })) {
 core.debug("Starting Terraform formatting validation");
 
 const cli = await findCLI();
-cliName = "";
+let cliName = "";
 switch (cli.split(path.sep).pop()) {
 	case "tofu":
 	case "tofu-bin":
