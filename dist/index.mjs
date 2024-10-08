@@ -32580,6 +32580,7 @@ ${reviewTag}
 /* harmony export */ });
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(4552);
 /* harmony import */ var _actions_io__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(4062);
+/* harmony import */ var node_os__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(8161);
 
 
 
@@ -32588,7 +32589,7 @@ async function findCLI() {
 	_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Searching for CLI");
 
 	let cliPath = "";
-	const exeSuffix = _actions_core__WEBPACK_IMPORTED_MODULE_0__.platform.isWindows ? ".exe" : "";
+	const exeSuffix = node_os__WEBPACK_IMPORTED_MODULE_2__.platform().startsWith("win") ? ".exe" : "";
 
 	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("cli_path")) {
 		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Looking for CLI path from input: ${cliPath}`);
