@@ -1,9 +1,10 @@
 import * as core from "@actions/core";
+import * as os from "node:os";
 import * as path from "node:path";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
-import { findCLI } from "./find-cli.mjs";
-import { createReview } from "./create-review.mjs";
+import { findCLI } from "./lib/find-cli.mjs";
+import { createReview } from "./lib/create-review.mjs";
 
 let createAReview = false;
 if (core.getBooleanInput("create-review", { required: true })) {
@@ -14,6 +15,14 @@ if (core.getBooleanInput("create-review", { required: true })) {
 			"Can only create a review for pull_request events. Ignoring create-review input",
 		);
 	}
+}
+
+let workingDirectory = os.getEnv("GITHUB_WORKSPACE");
+if (core.getInput("working_directory")) {
+	workingDirectory = path.join(
+		workingDirectory,
+		core.getInput("working_directory"),
+	);
 }
 
 core.debug("Starting Terraform formatting validation");
@@ -40,6 +49,7 @@ if (core.getBooleanInput("init", { required: true })) {
 let stdout = "";
 let stderr = "";
 const options = {
+	cwd: workingDirectory,
 	listeners: {
 		stdout: (data) => {
 			stdout += data.toString();
@@ -51,10 +61,16 @@ const options = {
 	ignoreReturnCode: true,
 	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-let args = ["fmt", "-check"];
+const args = ["fmt"];
+if (!createAReview) {
+	args.push("-check");
+}
 if (core.getBooleanInput("recursive", { required: true })) {
 	args.push("-recursive");
 }
+// Working directory is the last argument
+args.push(workingDirectory);
+
 core.debug(`Running: ${cli} ${args.join(" ")}`);
 const exitCode = await exec(cli, args, options);
 core.debug(`Exit code: ${exitCode}`);
@@ -71,6 +87,7 @@ switch (exitCode) {
 		break;
 	default:
 		core.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
+		process.exit(exitCode);
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
@@ -100,12 +117,6 @@ for (const file of files) {
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
 	core.info("Creating a review to fix the formatting issues");
-	args = ["fmt"];
-	if (core.getBooleanInput("recursive", { required: true })) {
-		args.push("-recursive");
-	}
-	await exec(cli, args, { ignoreReturnCode: true, silent: true });
-
 	await createReview();
 }
 core.setFailed("Formatting needs to be updated");

@@ -30401,6 +30401,13 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:events"
 
 /***/ }),
 
+/***/ 8161:
+/***/ ((module) => {
+
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
+
+/***/ }),
+
 /***/ 6760:
 /***/ ((module) => {
 
@@ -32133,7 +32140,146 @@ module.exports = parseParams
 
 /***/ }),
 
-/***/ 2828:
+/***/ 6642:
+/***/ ((__webpack_module__, __unused_webpack___webpack_exports__, __nccwpck_require__) => {
+
+__nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(4552);
+/* harmony import */ var node_os__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(8161);
+/* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(6760);
+/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(2872);
+/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(2736);
+/* harmony import */ var _lib_find_cli_mjs__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(5483);
+/* harmony import */ var _lib_create_review_mjs__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(8);
+
+
+
+
+
+
+
+
+let createAReview = false;
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true })) {
+	if (_actions_github__WEBPACK_IMPORTED_MODULE_3__.context.payload.pull_request) {
+		createAReview = true;
+	} else {
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning(
+			"Can only create a review for pull_request events. Ignoring create-review input",
+		);
+	}
+}
+
+let workingDirectory = node_os__WEBPACK_IMPORTED_MODULE_1__.getEnv("GITHUB_WORKSPACE");
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("working_directory")) {
+	workingDirectory = node_path__WEBPACK_IMPORTED_MODULE_2__.join(
+		workingDirectory,
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("working_directory"),
+	);
+}
+
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Starting Terraform formatting validation");
+
+const cli = await (0,_lib_find_cli_mjs__WEBPACK_IMPORTED_MODULE_5__/* .findCLI */ .U)();
+let cliName = "";
+switch (cli.split(node_path__WEBPACK_IMPORTED_MODULE_2__.sep).pop()) {
+	case "tofu":
+	case "tofu-bin":
+		cliName = "tofu";
+		break;
+	case "terraform":
+	case "terraform-bin":
+		cliName = "terraform";
+		break;
+	default:
+		cliName = cli.split(node_path__WEBPACK_IMPORTED_MODULE_2__.sep).pop();
+}
+
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("init", { required: true })) {
+	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, ["init", "-backend=false"]);
+}
+
+let stdout = "";
+let stderr = "";
+const options = {
+	cwd: workingDirectory,
+	listeners: {
+		stdout: (data) => {
+			stdout += data.toString();
+		},
+		stderr: (data) => {
+			stderr += data.toString();
+		},
+	},
+	ignoreReturnCode: true,
+	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
+};
+const args = ["fmt"];
+if (!createAReview) {
+	args.push("-check");
+}
+if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
+	args.push("-recursive");
+}
+// Working directory is the last argument
+args.push(workingDirectory);
+
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: ${cli} ${args.join(" ")}`);
+const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, args, options);
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Exit code: ${exitCode}`);
+switch (exitCode) {
+	case 0:
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Configuration is formatted correctly");
+		await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
+			.addHeading(":white_check_mark: Formatting is correct")
+			.write();
+		process.exit();
+		break;
+	case 3:
+		// Terraform fmt returns 3 if there are formatting errors to be corrected
+		break;
+	default:
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
+		process.exit(exitCode);
+}
+const files = stdout.split("\n").filter((line) => line.trim() !== "");
+
+const summary = _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
+	.addHeading(":x: Formatting needs to be updated")
+	.addSeparator()
+	.addRaw(`Found ${files.length} files with formatting issues`, true)
+	.addList(files);
+
+if (!createAReview) {
+	summary.addRaw(
+		`Please run \`${cliName} fmt\` locally to fix the formatting issues`,
+		true,
+	);
+}
+summary.write();
+
+// Create annotations for each file with formatting issues
+for (const file of files) {
+	const properties = {
+		title: "Incorrect formatting",
+		file: file,
+	};
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.error(`Incorrect formatting in ${file}`, properties);
+}
+
+// Create a review to fix the formatting issues if requested
+if (createAReview) {
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review to fix the formatting issues");
+	await (0,_lib_create_review_mjs__WEBPACK_IMPORTED_MODULE_6__/* .createReview */ .b)();
+}
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Formatting needs to be updated");
+
+__webpack_async_result__();
+} catch(e) { __webpack_async_result__(e); } }, 1);
+
+/***/ }),
+
+/***/ 8:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 
@@ -32149,7 +32295,7 @@ var github = __nccwpck_require__(2872);
 var github_namespaceObject = /*#__PURE__*/__nccwpck_require__.t(github, 2);
 // EXTERNAL MODULE: ./node_modules/@actions/exec/lib/exec.js
 var exec = __nccwpck_require__(2736);
-;// CONCATENATED MODULE: ./src/review-comments-from-git-diff.mjs
+;// CONCATENATED MODULE: ./src/lib/review-comments-from-git-diff.mjs
 
 
 async function getChanges(files = []) {
@@ -32268,7 +32414,7 @@ function createReviewComments(changes) {
 	return comments;
 }
 
-;// CONCATENATED MODULE: ./src/create-review.mjs
+;// CONCATENATED MODULE: ./src/lib/create-review.mjs
 
 
 
@@ -32293,7 +32439,6 @@ async function createReview() {
 		(response) =>
 			response.data
 				.map((file) => {
-					// We only care about Terraform code files
 					if (
 						extensions.includes(file.filename.split(".").pop().toLowerCase())
 					) {
@@ -32427,212 +32572,76 @@ ${reviewTag}
 
 /***/ }),
 
-/***/ 381:
+/***/ 5483:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
-
-// EXPORTS
-__nccwpck_require__.d(__webpack_exports__, {
-  U: () => (/* binding */ findCLI)
-});
-
-// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
-var core = __nccwpck_require__(4552);
-;// CONCATENATED MODULE: external "node:os"
-const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
-// EXTERNAL MODULE: ./node_modules/@actions/io/lib/io.js
-var io = __nccwpck_require__(4062);
-;// CONCATENATED MODULE: ./src/find-cli.mjs
-
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   U: () => (/* binding */ findCLI)
+/* harmony export */ });
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(4552);
+/* harmony import */ var _actions_io__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(4062);
 
 
 
 async function findCLI() {
-	core.debug("Searching for CLI");
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Searching for CLI");
 
 	let cliPath = "";
-	const exeSuffix = external_node_os_namespaceObject.platform().startsWith("win") ? ".exe" : "";
+	const exeSuffix = platform.isWindows ? ".exe" : "";
 
-	if (core.getInput("cli-path")) {
-		core.debug(`Looking for CLI path from input: ${cliPath}`);
-		cliPath = core.getInput("cli-path");
+	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("cli_path")) {
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Looking for CLI path from input: ${cliPath}`);
+		cliPath = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("cli_path");
 		if (!cliPath.endsWith(exeSuffix)) {
 			cliPath += exeSuffix;
 		}
 		try {
-			await io.which(cliPath, true);
+			await _actions_io__WEBPACK_IMPORTED_MODULE_1__.which(cliPath, true);
 			return cliPath;
 		} catch {
-			core.warning(`CLI path from input not found: ${cliPath}`);
-			core.debug("Searching for CLI in PATH");
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning(`CLI path from input not found: ${cliPath}`);
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Searching for CLI in PATH");
 		}
 	}
 
 	try {
 		// Looking for tofu-bin in case the wrapper from setup-opentofu is in use
-		core.debug("Looking for tofu-bin");
-		await io.which(cliPath, true);
-		core.info(`Using tofu binary at ${cliPath}`);
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Looking for tofu-bin");
+		await _actions_io__WEBPACK_IMPORTED_MODULE_1__.which(cliPath, true);
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Using tofu binary at ${cliPath}`);
 		return cliPath;
 	} catch {
-		core.debug("`tofu-bin` not found");
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("`tofu-bin` not found");
 		try {
-			core.debug("Looking for `tofu`");
-			cliPath = await io.which(`tofu${exeSuffix}`, true);
-			core.info(`Using tofu binary at ${cliPath}`);
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Looking for `tofu`");
+			cliPath = await _actions_io__WEBPACK_IMPORTED_MODULE_1__.which(`tofu${exeSuffix}`, true);
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Using tofu binary at ${cliPath}`);
 			return cliPath;
 		} catch {
-			core.warning("tofu binary not found");
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning("tofu binary not found");
 		}
 	}
 
 	try {
 		// Looking for terraform-bin in case the wrapper from setup-terraform is in use
-		core.debug("Looking for `terraform-bin`");
-		cliPath = await io.which(`terraform-bin${exeSuffix}`, true);
-		core.info(`Using terraform binary at ${cliPath}`);
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Looking for `terraform-bin`");
+		cliPath = await _actions_io__WEBPACK_IMPORTED_MODULE_1__.which(`terraform-bin${exeSuffix}`, true);
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Using terraform binary at ${cliPath}`);
 		return cliPath;
 	} catch {
-		core.debug("`terraform-bin` not found");
+		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("`terraform-bin` not found");
 		try {
-			core.debug("Looking for `terraform`");
-			cliPath = await io.which(`terraform${exeSuffix}`, true);
-			core.info(`Using terraform binary at ${cliPath}`);
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Looking for `terraform`");
+			cliPath = await _actions_io__WEBPACK_IMPORTED_MODULE_1__.which(`terraform${exeSuffix}`, true);
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Using terraform binary at ${cliPath}`);
 			return cliPath;
 		} catch {
-			core.warning("terraform binary not found");
+			_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning("terraform binary not found");
 		}
 	}
 	throw new Error("CLI not found");
 }
 
-
-/***/ }),
-
-/***/ 6642:
-/***/ ((__webpack_module__, __unused_webpack___webpack_exports__, __nccwpck_require__) => {
-
-__nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(4552);
-/* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(6760);
-/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(2872);
-/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(2736);
-/* harmony import */ var _find_cli_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(381);
-/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(2828);
-
-
-
-
-
-
-
-let createAReview = false;
-if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true })) {
-	if (_actions_github__WEBPACK_IMPORTED_MODULE_2__.context.payload.pull_request) {
-		createAReview = true;
-	} else {
-		_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning(
-			"Can only create a review for pull_request events. Ignoring create-review input",
-		);
-	}
-}
-
-_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Starting Terraform formatting validation");
-
-const cli = await (0,_find_cli_mjs__WEBPACK_IMPORTED_MODULE_4__/* .findCLI */ .U)();
-let cliName = "";
-switch (cli.split(node_path__WEBPACK_IMPORTED_MODULE_1__.sep).pop()) {
-	case "tofu":
-	case "tofu-bin":
-		cliName = "tofu";
-		break;
-	case "terraform":
-	case "terraform-bin":
-		cliName = "terraform";
-		break;
-	default:
-		cliName = cli.split(node_path__WEBPACK_IMPORTED_MODULE_1__.sep).pop();
-}
-
-if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("init", { required: true })) {
-	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, ["init", "-backend=false"]);
-}
-
-let stdout = "";
-let stderr = "";
-const options = {
-	listeners: {
-		stdout: (data) => {
-			stdout += data.toString();
-		},
-		stderr: (data) => {
-			stderr += data.toString();
-		},
-	},
-	ignoreReturnCode: true,
-	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
-};
-let args = ["fmt", "-check"];
-if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
-	args.push("-recursive");
-}
-_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: ${cli} ${args.join(" ")}`);
-const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, args, options);
-_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Exit code: ${exitCode}`);
-switch (exitCode) {
-	case 0:
-		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Configuration is formatted correctly");
-		await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
-			.addHeading(":white_check_mark: Formatting is correct")
-			.write();
-		process.exit();
-		break;
-	case 3:
-		// Terraform fmt returns 3 if there are formatting errors to be corrected
-		break;
-	default:
-		_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
-}
-const files = stdout.split("\n").filter((line) => line.trim() !== "");
-
-const summary = _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
-	.addHeading(":x: Formatting needs to be updated")
-	.addSeparator()
-	.addRaw(`Found ${files.length} files with formatting issues`, true)
-	.addList(files);
-
-if (!createAReview) {
-	summary.addRaw(
-		`Please run \`${cliName} fmt\` locally to fix the formatting issues`,
-		true,
-	);
-}
-summary.write();
-
-// Create annotations for each file with formatting issues
-for (const file of files) {
-	const properties = {
-		title: "Incorrect formatting",
-		file: file,
-	};
-	_actions_core__WEBPACK_IMPORTED_MODULE_0__.error(`Incorrect formatting in ${file}`, properties);
-}
-
-// Create a review to fix the formatting issues if requested
-if (createAReview) {
-	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review to fix the formatting issues");
-	args = ["fmt"];
-	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
-		args.push("-recursive");
-	}
-	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, args, { ignoreReturnCode: true, silent: true });
-
-	await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_5__/* .createReview */ .b)();
-}
-_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Formatting needs to be updated");
-
-__webpack_async_result__();
-} catch(e) { __webpack_async_result__(e); } }, 1);
 
 /***/ })
 

@@ -25,7 +25,6 @@ export async function createReview() {
 		(response) =>
 			response.data
 				.map((file) => {
-					// We only care about Terraform code files
 					if (
 						extensions.includes(file.filename.split(".").pop().toLowerCase())
 					) {

@@ -2,7 +2,7 @@ name: Terraform Formatting
 description: Format a Terraform configuration, and optionally post a code review on the pull request highlighting issues.
 author: oWretch
 inputs:
-  cli-path:
+  cli_path:
     description: Path to the cli executable to use
     required: false
   init:
@@ -13,14 +13,17 @@ inputs:
     description: Recursively format all files in the directory
     required: true
     default: "false"
-  create-review:
+  create_review:
     description: Create a code review with the required formatting changes
     required: true
     default: "false"
+  working_directory:
+    description: The directory to run the formatting from. Defaults to the root of the repository.
+    required: false
   token:
     description: GitHub token to create a code review
     required: true
-  api-url:
+  api_url:
     description: GitHub API URL. Defaults to https://api.github.com
     default: https://api.github.com
 runs:

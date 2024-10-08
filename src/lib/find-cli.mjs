@@ -1,16 +1,15 @@
 import * as core from "@actions/core";
-import * as os from "node:os";
 import * as io from "@actions/io";
 
 export async function findCLI() {
 	core.debug("Searching for CLI");
 
 	let cliPath = "";
-	const exeSuffix = os.platform().startsWith("win") ? ".exe" : "";
+	const exeSuffix = platform.isWindows ? ".exe" : "";
 
-	if (core.getInput("cli-path")) {
+	if (core.getInput("cli_path")) {
 		core.debug(`Looking for CLI path from input: ${cliPath}`);
-		cliPath = core.getInput("cli-path");
+		cliPath = core.getInput("cli_path");
 		if (!cliPath.endsWith(exeSuffix)) {
 			cliPath += exeSuffix;
 		}
