@@ -5,7 +5,7 @@ export async function findCLI() {
 	core.debug("Searching for CLI");
 
 	let cliPath = "";
-	const exeSuffix = platform.isWindows ? ".exe" : "";
+	const exeSuffix = core.platform.isWindows ? ".exe" : "";
 
 	if (core.getInput("cli_path")) {
 		core.debug(`Looking for CLI path from input: ${cliPath}`);

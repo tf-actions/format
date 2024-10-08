@@ -32587,7 +32587,7 @@ async function findCLI() {
 	_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Searching for CLI");
 
 	let cliPath = "";
-	const exeSuffix = platform.isWindows ? ".exe" : "";
+	const exeSuffix = _actions_core__WEBPACK_IMPORTED_MODULE_0__.platform.isWindows ? ".exe" : "";
 
 	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput("cli_path")) {
 		_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Looking for CLI path from input: ${cliPath}`);
