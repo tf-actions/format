@@ -30401,6 +30401,13 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:events"
 
 /***/ }),
 
+/***/ 6760:
+/***/ ((module) => {
+
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+
+/***/ }),
+
 /***/ 7075:
 /***/ ((module) => {
 
@@ -32507,10 +32514,12 @@ async function findCLI() {
 
 __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(4552);
-/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2872);
-/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(2736);
-/* harmony import */ var _find_cli_mjs__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(381);
-/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(2828);
+/* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(6760);
+/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(2872);
+/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(2736);
+/* harmony import */ var _find_cli_mjs__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(381);
+/* harmony import */ var _create_review_mjs__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(2828);
+
 
 
 
@@ -32519,7 +32528,7 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 
 let createAReview = false;
 if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", { required: true })) {
-	if (_actions_github__WEBPACK_IMPORTED_MODULE_1__.context.payload.pull_request) {
+	if (_actions_github__WEBPACK_IMPORTED_MODULE_2__.context.payload.pull_request) {
 		createAReview = true;
 	} else {
 		_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning(
@@ -32530,9 +32539,9 @@ if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("create-review", 
 
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug("Starting Terraform formatting validation");
 
-const cli = await (0,_find_cli_mjs__WEBPACK_IMPORTED_MODULE_3__/* .findCLI */ .U)();
+const cli = await (0,_find_cli_mjs__WEBPACK_IMPORTED_MODULE_4__/* .findCLI */ .U)();
 let cliName = "";
-switch (cli.split(path.sep).pop()) {
+switch (cli.split(node_path__WEBPACK_IMPORTED_MODULE_1__.sep).pop()) {
 	case "tofu":
 	case "tofu-bin":
 		cliName = "tofu";
@@ -32542,11 +32551,11 @@ switch (cli.split(path.sep).pop()) {
 		cliName = "terraform";
 		break;
 	default:
-		cliName = cli.split(path.sep).pop();
+		cliName = cli.split(node_path__WEBPACK_IMPORTED_MODULE_1__.sep).pop();
 }
 
 if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("init", { required: true })) {
-	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(cli, ["init", "-backend=false"]);
+	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, ["init", "-backend=false"]);
 }
 
 let stdout = "";
@@ -32568,7 +32577,7 @@ if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { re
 	args.push("-recursive");
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: ${cli} ${args.join(" ")}`);
-const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(cli, args, options);
+const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, args, options);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Exit code: ${exitCode}`);
 switch (exitCode) {
 	case 0:
@@ -32616,9 +32625,9 @@ if (createAReview) {
 	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
 		args.push("-recursive");
 	}
-	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(cli, args, { ignoreReturnCode: true, silent: true });
+	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_3__.exec)(cli, args, { ignoreReturnCode: true, silent: true });
 
-	await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_4__/* .createReview */ .b)();
+	await (0,_create_review_mjs__WEBPACK_IMPORTED_MODULE_5__/* .createReview */ .b)();
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Formatting needs to be updated");
 

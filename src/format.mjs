@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+import * as path from "node:path";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
 import { findCLI } from "./find-cli.mjs";
