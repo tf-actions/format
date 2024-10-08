@@ -32214,10 +32214,7 @@ const options = {
 	ignoreReturnCode: true,
 	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-const args = ["fmt"];
-if (!createAReview) {
-	args.push("-check");
-}
+const args = ["fmt", "-check"];
 if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
 	args.push("-recursive");
 }
@@ -32227,6 +32224,7 @@ args.push(workingDirectory);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: ${cli} ${args.join(" ")}`);
 const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, args, options);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Exit code: ${exitCode}`);
+
 switch (exitCode) {
 	case 0:
 		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Configuration is formatted correctly");
@@ -32269,7 +32267,17 @@ for (const file of files) {
 
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
-	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review to fix the formatting issues");
+	// Run the formatting command to fix the issues
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running ${cliName} fmt to fix the formatting issues`);
+	const args = ["fmt"];
+	if (_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput("recursive", { required: true })) {
+		args.push("-recursive");
+	}
+	// Working directory is the last argument
+	args.push(workingDirectory);
+	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, args, options);
+
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review for the formatting issues");
 	await (0,_lib_create_review_mjs__WEBPACK_IMPORTED_MODULE_6__/* .createReview */ .b)();
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Formatting needs to be updated");

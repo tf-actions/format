@@ -61,10 +61,7 @@ const options = {
 	ignoreReturnCode: true,
 	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-const args = ["fmt"];
-if (!createAReview) {
-	args.push("-check");
-}
+const args = ["fmt", "-check"];
 if (core.getBooleanInput("recursive", { required: true })) {
 	args.push("-recursive");
 }
@@ -74,6 +71,7 @@ args.push(workingDirectory);
 core.debug(`Running: ${cli} ${args.join(" ")}`);
 const exitCode = await exec(cli, args, options);
 core.debug(`Exit code: ${exitCode}`);
+
 switch (exitCode) {
 	case 0:
 		core.info("Configuration is formatted correctly");
@@ -116,7 +114,17 @@ for (const file of files) {
 
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
-	core.info("Creating a review to fix the formatting issues");
+	// Run the formatting command to fix the issues
+	core.debug(`Running ${cliName} fmt to fix the formatting issues`);
+	const args = ["fmt"];
+	if (core.getBooleanInput("recursive", { required: true })) {
+		args.push("-recursive");
+	}
+	// Working directory is the last argument
+	args.push(workingDirectory);
+	await exec(cli, args, options);
+
+	core.info("Creating a review for the formatting issues");
 	await createReview();
 }
 core.setFailed("Formatting needs to be updated");
