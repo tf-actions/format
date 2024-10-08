@@ -32225,20 +32225,12 @@ _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Running: ${cli} ${args.join(" 
 const exitCode = await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, args, options);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Exit code: ${exitCode}`);
 
-switch (exitCode) {
-	case 0:
-		_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Configuration is formatted correctly");
-		await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
-			.addHeading(":white_check_mark: Formatting is correct")
-			.write();
-		process.exit();
-		break;
-	case 3:
-		// Terraform fmt returns 3 if there are formatting errors to be corrected
-		break;
-	default:
-		_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
-		process.exit(exitCode);
+if (exitCode === 0) {
+	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Configuration is formatted correctly");
+	await _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
+		.addHeading(":white_check_mark: Formatting is correct")
+		.write();
+	process.exit();
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 

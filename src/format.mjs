@@ -72,20 +72,12 @@ core.debug(`Running: ${cli} ${args.join(" ")}`);
 const exitCode = await exec(cli, args, options);
 core.debug(`Exit code: ${exitCode}`);
 
-switch (exitCode) {
-	case 0:
-		core.info("Configuration is formatted correctly");
-		await core.summary
-			.addHeading(":white_check_mark: Formatting is correct")
-			.write();
-		process.exit();
-		break;
-	case 3:
-		// Terraform fmt returns 3 if there are formatting errors to be corrected
-		break;
-	default:
-		core.setFailed(`${cliName} fmt failed with exit code ${exitCode}`);
-		process.exit(exitCode);
+if (exitCode === 0) {
+	core.info("Configuration is formatted correctly");
+	await core.summary
+		.addHeading(":white_check_mark: Formatting is correct")
+		.write();
+	process.exit();
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
