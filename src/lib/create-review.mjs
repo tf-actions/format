@@ -142,7 +142,7 @@ export async function createReview() {
 			comments,
 			body: `\
 # Formatting Review
-${length(changedFiles)} files in this pull request have formatting issues. \
+${changedFiles.length} files in this pull request have formatting issues. \
 Please run \`${cliName} fmt\` to fix them.
 <details>
 <summary>Files with formatting issues</summary>
