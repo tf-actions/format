@@ -9,7 +9,7 @@ clean:          ## Clean the project.
 	rm -rf dist
 .PHONY: clean
 
-dist/index.mjs: src/*.mjs
+dist/index.mjs: src/*.mjs src/lib/*.mjs
 	ncc build src/format.mjs \
-		--out $(@D) \
-		--minify
+		--out $(@D)
+# --minify
