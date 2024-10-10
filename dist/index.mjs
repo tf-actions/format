@@ -32298,7 +32298,9 @@ var exec = __nccwpck_require__(2736);
 ;// CONCATENATED MODULE: ./src/lib/review-comments-from-git-diff.mjs
 
 
+
 async function getChanges(files = []) {
+	core.debug("Get changes from git diff");
 	let args = [
 		"diff",
 		"--minimal", // Minimal diff
@@ -32308,7 +32310,7 @@ async function getChanges(files = []) {
 	if (files.length > 0) {
 		args = args.concat(["--", ...files]);
 	}
-	console.log(`args: ${args}`);
+	core.debug(`args: ${args}`);
 	const diff = await (0,exec.getExecOutput)("git", args, { silent: true });
 
 	const changes = [];
@@ -32425,6 +32427,7 @@ const extensions = ["tf", "tfvars"];
 const reviewTag = "<!-- oWretch/terraform-format review -->";
 
 async function createReview(cliName) {
+	core.debug("Creating a review");
 	core.debug("Creating octokit client");
 	const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
@@ -32447,17 +32450,13 @@ async function createReview(cliName) {
 				})
 				.filter((n) => n),
 	);
-	console.debug(
-		`pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`,
-	);
+	core.debug(`pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`);
 
 	const changes = await getChanges(pullRequestFileNames);
-	const changedFiles = changes.map((change) => change.file);
-
 	const comments = createReviewComments(changes);
 
 	// Find the existing review(s), if they exists
-	core.debug("Listing reviews on the pull request");
+	core.debug("Listing existing reviews on the pull request");
 	const reviewIds = await octokit.paginate(
 		octokit.rest.pulls.listReviews,
 		{
@@ -32472,7 +32471,7 @@ async function createReview(cliName) {
 						review.state === "CHANGES_REQUESTED" &&
 						review.body.includes(reviewTag)
 					) {
-						core.debug(`Found existing review ID: ${review.id}`);
+						core.debug(`Found outstanding review ID: ${review.id}`);
 						return review.id;
 					}
 				})
@@ -32481,6 +32480,8 @@ async function createReview(cliName) {
 	core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
 
 	for (const reviewId of reviewIds) {
+		core.debug(`Processing existing review: ${reviewId}`);
+
 		let message = "Superseeded by new review";
 		let commentCloseClassifier = "OUTDATED";
 		if (comments.length > 0 && reviewIds.at(-1) === reviewId) {
@@ -32491,13 +32492,18 @@ async function createReview(cliName) {
 		}
 
 		// Resolve the review comments
-		const oldComments = await octokit.rest.pulls.listCommentsForReview({
-			...context.repo,
-			pull_number: pull_request.number,
-			review_id: reviewId,
-		});
-		for (const comment of oldComments.data) {
-			core.debug("Hide the review comment");
+		core.debug("Get the review comments");
+		const oldComments = await octokit.paginate(
+			octokit.rest.pulls.listCommentsForReview,
+			{
+				...context.repo,
+				pull_number: pull_request.number,
+				review_id: reviewId,
+			},
+			(response) => response.data.map((comment) => comment),
+		);
+		for (const comment of oldComments) {
+			core.debug(`Hide the review comment ${comment.id}`);
 			await octokit.graphql(
 				`
           mutation hideComment($id: ID!) {
@@ -32549,6 +32555,11 @@ async function createReview(cliName) {
 	// Post a new review if we have comments
 	if (comments.length > 0) {
 		core.debug("Creating new review");
+
+		const changedFileNames = [
+			...new Set(changes.map((change) => change.toFile.name)),
+		];
+
 		await octokit.rest.pulls.createReview({
 			...context.repo,
 			pull_number: pull_request.number,
@@ -32556,11 +32567,11 @@ async function createReview(cliName) {
 			comments,
 			body: `\
 # Formatting Review
-${changedFiles.length} files in this pull request have formatting issues. \
+${changedFileNames.length} files in this pull request have formatting issues. \
 Please run \`${cliName} fmt\` to fix them.
 <details>
 <summary>Files with formatting issues</summary>
-\`${changedFiles.join("`\n`")}\`
+\`${changedFileNames.join("`\n`")}\`
 </details>
 ${reviewTag}
 `,

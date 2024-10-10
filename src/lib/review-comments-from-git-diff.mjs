@@ -1,6 +1,8 @@
+import * as core from "@actions/core";
 import { getExecOutput } from "@actions/exec";
 
 export async function getChanges(files = []) {
+	core.debug("Get changes from git diff");
 	let args = [
 		"diff",
 		"--minimal", // Minimal diff
@@ -10,7 +12,7 @@ export async function getChanges(files = []) {
 	if (files.length > 0) {
 		args = args.concat(["--", ...files]);
 	}
-	console.log(`args: ${args}`);
+	core.debug(`args: ${args}`);
 	const diff = await getExecOutput("git", args, { silent: true });
 
 	const changes = [];
