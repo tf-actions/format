@@ -68,7 +68,7 @@ export async function createReview(cliName) {
 
 		let message = "Superseeded by new review";
 		let commentCloseClassifier = "OUTDATED";
-		if (comments.length > 0 && reviews.at(-1).id === review.id) {
+		if (comments.length === 0 && reviews.at(-1).id === review.id) {
 			// If we have no more changes, and we are dealing with the last review
 			// set the message to indicate the review is correctly resolved
 			message = "All formatting issues have been resolved";
