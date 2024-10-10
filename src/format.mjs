@@ -1,15 +1,23 @@
 import * as core from "@actions/core";
-import * as os from "node:os";
 import * as path from "node:path";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
 import { findCLI } from "./lib/find-cli.mjs";
 import { createReview } from "./lib/create-review.mjs";
 
+core.info("Starting Terraform formatting validation");
+
+console.dir(context, { depth: null });
+
 let createAReview = false;
 if (core.getBooleanInput("create_review", { required: true })) {
 	if (context.payload.pull_request) {
 		createAReview = true;
+		try {
+			githubToken = core.getInput("token");
+		} catch (error) {
+			core.setFailed("Token is required when creating a review");
+		}
 	} else {
 		core.warning(
 			"Can only create a review for pull_request events. Ignoring create-review input",
@@ -24,8 +32,6 @@ if (core.getInput("working_directory")) {
 		core.getInput("working_directory"),
 	);
 }
-
-core.debug("Starting Terraform formatting validation");
 
 const cli = await findCLI();
 let cliName = "";

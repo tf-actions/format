@@ -22,7 +22,7 @@ inputs:
     required: false
   token:
     description: GitHub token to create a code review
-    required: true
+    required: false
   api_url:
     description: GitHub API URL. Defaults to https://api.github.com
     default: https://api.github.com
