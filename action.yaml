@@ -20,9 +20,11 @@ inputs:
   working_directory:
     description: The directory to run the formatting from. Defaults to the root of the repository.
     required: false
+    default: ${{ github.workspace }}
   token:
     description: GitHub token to create a code review
     required: false
+    default: ${{ github.token }}
   api_url:
     description: GitHub API URL. Defaults to https://api.github.com
     default: https://api.github.com

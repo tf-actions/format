@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import * as path from "node:path";
+import { fs } from "node:fs";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
 import { findCLI } from "./lib/find-cli.mjs";
@@ -7,17 +8,10 @@ import { createReview } from "./lib/create-review.mjs";
 
 core.info("Starting Terraform formatting validation");
 
-console.dir(context, { depth: null });
-
 let createAReview = false;
 if (core.getBooleanInput("create_review", { required: true })) {
 	if (context.payload.pull_request) {
 		createAReview = true;
-		try {
-			githubToken = core.getInput("token");
-		} catch (error) {
-			core.setFailed("Token is required when creating a review");
-		}
 	} else {
 		core.warning(
 			"Can only create a review for pull_request events. Ignoring create-review input",
@@ -26,11 +20,19 @@ if (core.getBooleanInput("create_review", { required: true })) {
 }
 
 let workingDirectory = process.env.GITHUB_WORKSPACE;
-if (core.getInput("working_directory")) {
-	workingDirectory = path.join(
-		workingDirectory,
-		core.getInput("working_directory"),
-	);
+if (core.getInput("working_directory") !== workingDirectory) {
+	let userWorkingDirectory = core.getInput("working_directory");
+	if (!path.isAbsolute(userWorkingDirectory)) {
+		userWorkingDirectory = path.join(
+			process.env.GITHUB_WORKSPACE,
+			core.getInput("working_directory"),
+		);
+	}
+	if (fs.existsSync(userWorkingDirectory)) {
+		workingDirectory = userWorkingDirectory;
+	} else {
+		core.setFailed(`Working directory ${userWorkingDirectory} does not exist`);
+	}
 }
 
 const cli = await findCLI();
@@ -49,7 +51,9 @@ switch (cli.split(path.sep).pop()) {
 }
 
 if (core.getBooleanInput("init", { required: true })) {
+	core.startGroup("Running terraform init");
 	await exec(cli, ["init", "-backend=false"]);
+	core.endGroup();
 }
 
 let stdout = "";
@@ -81,7 +85,7 @@ core.debug(`Exit code: ${exitCode}`);
 if (exitCode === 0) {
 	core.info("Configuration is formatted correctly");
 	await core.summary
-		.addHeading(":white_check_mark: Formatting is correct")
+		.addHeading(":white_check_mark: Formatting is correct", 2)
 		.write();
 	process.exit();
 }
