@@ -117,6 +117,6 @@ if (createAReview) {
 	await exec(cli, args, options);
 
 	core.info("Creating a review for the formatting issues");
-	await createReview();
+	await createReview(cliName);
 }
 core.setFailed("Formatting needs to be updated");

@@ -32270,7 +32270,7 @@ if (createAReview) {
 	await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_4__.exec)(cli, args, options);
 
 	_actions_core__WEBPACK_IMPORTED_MODULE_0__.info("Creating a review for the formatting issues");
-	await (0,_lib_create_review_mjs__WEBPACK_IMPORTED_MODULE_6__/* .createReview */ .b)();
+	await (0,_lib_create_review_mjs__WEBPACK_IMPORTED_MODULE_6__/* .createReview */ .b)(cliName);
 }
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed("Formatting needs to be updated");
 
@@ -32418,13 +32418,13 @@ function createReviewComments(changes) {
 
 
 
-const { context = {} } = github_namespaceObject;
+const { context } = github_namespaceObject;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
 const reviewTag = "<!-- oWretch/terraform-format review -->";
 
-async function createReview() {
+async function createReview(cliName) {
 	core.debug("Creating octokit client");
 	const octokit = github.getOctokit(core.getInput("token", { required: true }));
 

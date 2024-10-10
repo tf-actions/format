@@ -4,13 +4,13 @@ import {
 	getChanges,
 	createReviewComments,
 } from "./review-comments-from-git-diff.mjs";
-const { context = {} } = github;
+const { context } = github;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
 const reviewTag = "<!-- oWretch/terraform-format review -->";
 
-export async function createReview() {
+export async function createReview(cliName) {
 	core.debug("Creating octokit client");
 	const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
