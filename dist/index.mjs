@@ -32233,6 +32233,9 @@ if (exitCode === 0) {
 	process.exit();
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`stdout: ${stdout}`);
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Found ${files.length} files with formatting issues`);
+_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Files: ${files.join(", ")}`);
 
 const summary = _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
 	.addHeading(":x: Formatting needs to be updated")
@@ -32506,8 +32509,8 @@ async function createReview(cliName) {
 			core.debug(`Hide the review comment ${comment.id}`);
 			await octokit.graphql(
 				`
-          mutation hideComment($id: ID!) {
-            minimizeComment(input: {classifier: $classifier, subjectId: $id}) {
+          mutation hideComment($id: ID!, $classifier: ReportedContentClassifiers!) {
+            minimizeComment(input: {subjectId: $id, classifier: $classifier}) {
               clientMutationId
               minimizedComment {
                 isMinimized
@@ -32518,7 +32521,7 @@ async function createReview(cliName) {
           }
         `,
 				{
-					id: comment.id,
+					id: comment.node_id,
 					classifier: commentCloseClassifier,
 				},
 			);

@@ -80,6 +80,9 @@ if (exitCode === 0) {
 	process.exit();
 }
 const files = stdout.split("\n").filter((line) => line.trim() !== "");
+core.debug(`stdout: ${stdout}`);
+core.info(`Found ${files.length} files with formatting issues`);
+core.debug(`Files: ${files.join(", ")}`);
 
 const summary = core.summary
 	.addHeading(":x: Formatting needs to be updated")
