@@ -88,10 +88,9 @@ core.info(`Found ${files.length} files with formatting issues`);
 core.debug(`Files: ${files.join(", ")}`);
 
 const summary = core.summary
-	.addHeading(":x: Formatting needs to be updated")
-	.addSeparator()
+	.addHeading(":x: Formatting needs to be updated", 2)
 	.addRaw(`Found ${files.length} files with formatting issues`, true)
-	.addList(files);
+	.addList(files.map((file) => `\`${file}\``));
 
 if (!createAReview) {
 	summary.addRaw(

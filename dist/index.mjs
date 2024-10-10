@@ -32241,10 +32241,9 @@ _actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Found ${files.length} files wit
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Files: ${files.join(", ")}`);
 
 const summary = _actions_core__WEBPACK_IMPORTED_MODULE_0__.summary
-	.addHeading(":x: Formatting needs to be updated")
-	.addSeparator()
+	.addHeading(":x: Formatting needs to be updated", 2)
 	.addRaw(`Found ${files.length} files with formatting issues`, true)
-	.addList(files);
+	.addList(files.map((file) => `\`${file}\``));
 
 if (!createAReview) {
 	summary.addRaw(
@@ -32580,7 +32579,7 @@ Please run \`${cliName} fmt\` to fix them.
 
 <summary>Files with formatting issues</summary>
 
-- \`${changedFileNames.join("`\n\n- `")}\`
+${changedFileNames.map((n) => `- \`${n}\``).join("\n")}
 
 </details>
 ${reviewTag}

@@ -158,7 +158,7 @@ Please run \`${cliName} fmt\` to fix them.
 
 <summary>Files with formatting issues</summary>
 
-- \`${changedFileNames.join("`\n\n- `")}\`
+${changedFileNames.map((n) => `- \`${n}\``).join("\n")}
 
 </details>
 ${reviewTag}
