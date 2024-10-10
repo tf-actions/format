@@ -79,7 +79,10 @@ if (exitCode === 0) {
 		.write();
 	process.exit();
 }
-const files = stdout.split("\n").filter((line) => line.trim() !== "");
+const files = stdout
+	.split("\n")
+	.filter((line) => line.trim() !== "")
+	.filter((line) => !line.startsWith("::"));
 core.debug(`stdout: ${stdout}`);
 core.info(`Found ${files.length} files with formatting issues`);
 core.debug(`Files: ${files.join(", ")}`);

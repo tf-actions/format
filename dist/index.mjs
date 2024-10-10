@@ -32232,7 +32232,10 @@ if (exitCode === 0) {
 		.write();
 	process.exit();
 }
-const files = stdout.split("\n").filter((line) => line.trim() !== "");
+const files = stdout
+	.split("\n")
+	.filter((line) => line.trim() !== "")
+	.filter((line) => !line.startsWith("::"));
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`stdout: ${stdout}`);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`Found ${files.length} files with formatting issues`);
 _actions_core__WEBPACK_IMPORTED_MODULE_0__.debug(`Files: ${files.join(", ")}`);
@@ -32460,7 +32463,7 @@ async function createReview(cliName) {
 
 	// Find the existing review(s), if they exists
 	core.debug("Listing existing reviews on the pull request");
-	const reviewIds = await octokit.paginate(
+	const reviews = await octokit.paginate(
 		octokit.rest.pulls.listReviews,
 		{
 			...context.repo,
@@ -32475,19 +32478,19 @@ async function createReview(cliName) {
 						review.body.includes(reviewTag)
 					) {
 						core.debug(`Found outstanding review ID: ${review.id}`);
-						return review.id;
+						return review;
 					}
 				})
 				.filter((n) => n),
 	);
-	core.debug(`Review IDs: ${JSON.stringify(reviewIds)}`);
+	core.debug(`Review IDs: ${JSON.stringify(reviews.map((r) => r.id))}`);
 
-	for (const reviewId of reviewIds) {
-		core.debug(`Processing existing review: ${reviewId}`);
+	for (const review of reviews) {
+		core.debug(`Processing existing review: ${review.id}`);
 
 		let message = "Superseeded by new review";
 		let commentCloseClassifier = "OUTDATED";
-		if (comments.length > 0 && reviewIds.at(-1) === reviewId) {
+		if (comments.length > 0 && reviews.at(-1).id === review.id) {
 			// If we have no more changes, and we are dealing with the last review
 			// set the message to indicate the review is correctly resolved
 			message = "All formatting issues have been resolved";
@@ -32501,7 +32504,7 @@ async function createReview(cliName) {
 			{
 				...context.repo,
 				pull_number: pull_request.number,
-				review_id: reviewId,
+				review_id: review.id,
 			},
 			(response) => response.data.map((comment) => comment),
 		);
@@ -32527,29 +32530,29 @@ async function createReview(cliName) {
 			);
 		}
 
-		// core.debug("Hide the review comment");
-		// await octokit.graphql(
-		// 	`
-		//     mutation hideComment($id: ID!) {
-		//       minimizeComment(input: {classifier: $classifier, subjectId: $id}) {
-		//         clientMutationId
-		//         minimizedComment {
-		//           isMinimized
-		//           minimizedReason
-		//           viewerCanMinimize
-		//         }
-		//       }
-		//     }
-		//   `,
-		// 	{ id: reviewId, classifier: commentCloseClassifier },
-		// );
+		core.debug("Hide the review comment");
+		await octokit.graphql(
+			`
+		    mutation hideComment($id: ID!, $classifier: ReportedContentClassifiers!) {
+		      minimizeComment(input: {subjectId: $id, classifier: $classifier}) {
+		        clientMutationId
+		        minimizedComment {
+		          isMinimized
+		          minimizedReason
+		          viewerCanMinimize
+		        }
+		      }
+		    }
+		  `,
+			{ id: review.node_id, classifier: commentCloseClassifier },
+		);
 
 		// Dismiss the existing review as superseeded
 		core.debug("Dismiss the existing review as superseeded");
 		await octokit.rest.pulls.dismissReview({
 			...context.repo,
 			pull_number: pull_request.number,
-			review_id: reviewId,
+			review_id: review.id,
 			message: message,
 			event: "DISMISS",
 		});
@@ -32572,9 +32575,13 @@ async function createReview(cliName) {
 # Formatting Review
 ${changedFileNames.length} files in this pull request have formatting issues. \
 Please run \`${cliName} fmt\` to fix them.
+
 <details>
+
 <summary>Files with formatting issues</summary>
-\`${changedFileNames.join("`\n`")}\`
+
+- \`${changedFileNames.join("`\n\n- `")}\`
+
 </details>
 ${reviewTag}
 `,
