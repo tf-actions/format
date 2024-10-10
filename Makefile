@@ -11,5 +11,5 @@ clean:          ## Clean the project.
 
 dist/index.mjs: src/*.mjs src/lib/*.mjs
 	ncc build src/format.mjs \
+	  --minify \
 		--out $(@D)
-# --minify

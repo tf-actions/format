@@ -90,7 +90,7 @@ core.debug(`Files: ${files.join(", ")}`);
 const summary = core.summary
 	.addHeading(":x: Formatting needs to be updated", 2)
 	.addRaw(`Found ${files.length} files with formatting issues`, true)
-	.addList(files.map((file) => `\`${file}\``));
+	.addList(files);
 
 if (!createAReview) {
 	summary.addRaw(
