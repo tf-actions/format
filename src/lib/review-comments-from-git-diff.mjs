@@ -99,7 +99,7 @@ export function createReviewComments(changes) {
 	for (const change of changes) {
 		const comment = {
 			path: change.toFile.name,
-			// biome-ignore lint/style/useTemplate: A template literal would be less readable here
+			// biome-ignore lint/style/useTemplate: Number of backticks
 			body: "````suggestion\n" + change.toFile.content + "````",
 		};
 

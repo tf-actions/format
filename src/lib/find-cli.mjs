@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import * as io from "@actions/io";
 import * as os from "node:os";
+import * as path from "node:path";
 
 export async function findCLI() {
 	core.debug("Searching for CLI");
@@ -16,47 +17,67 @@ export async function findCLI() {
 		}
 		try {
 			await io.which(cliPath, true);
-			return cliPath;
+			let cliName = "";
+			switch (cli.split(cliPath.sep).pop()) {
+				case "tofu":
+				case "tofu-bin":
+					cliName = "tofu";
+					break;
+				case "terraform":
+				case "terraform-bin":
+					cliName = "terraform";
+					break;
+				default:
+					cliName = cli.split(path.sep).pop();
+			}
+			return { cliPath: cliPath, cliName: cliName };
 		} catch {
-			core.warning(`CLI path from input not found: ${cliPath}`);
+			core.info(`CLI path from input not found: ${cliPath}`);
 			core.debug("Searching for CLI in PATH");
 		}
 	}
 
-	try {
-		// Looking for tofu-bin in case the wrapper from setup-opentofu is in use
-		core.debug("Looking for tofu-bin");
-		await io.which(cliPath, true);
-		core.info(`Using tofu binary at ${cliPath}`);
-		return cliPath;
-	} catch {
-		core.debug("`tofu-bin` not found");
+	if (process.env.TOFU_CLI_PATH) {
+		core.debug(`Looking for CLI path from TOFU_CLI_PATH: ${cliPath}`);
+		cliPath = path.join(process.env.TOFU_CLI_PATH, `tofu-bin${exeSuffix}`);
 		try {
-			core.debug("Looking for `tofu`");
-			cliPath = await io.which(`tofu${exeSuffix}`, true);
-			core.info(`Using tofu binary at ${cliPath}`);
-			return cliPath;
+			await io.which(cliPath, true);
+			return { cliPath: cliPath, cliName: "tofu" };
 		} catch {
-			core.warning("tofu binary not found");
+			core.info(`CLI not found using TOFU_CLI_PATH: ${cliPath}`);
+		}
+	}
+
+	if (process.env.TERRAFORM_CLI_PATH) {
+		core.debug(`Looking for CLI path from TERRAFORM_CLI_PATH: ${cliPath}`);
+		cliPath = path.join(
+			process.env.TERRAFORM_CLI_PATH,
+			`terraform-bin${exeSuffix}`,
+		);
+		try {
+			await io.which(cliPath, true);
+			return { cliPath: cliPath, cliName: "terraform" };
+		} catch {
+			core.info(`CLI not found using TERRAFORM_CLI_PATH: ${cliPath}`);
 		}
 	}
 
 	try {
-		// Looking for terraform-bin in case the wrapper from setup-terraform is in use
-		core.debug("Looking for `terraform-bin`");
-		cliPath = await io.which(`terraform-bin${exeSuffix}`, true);
-		core.info(`Using terraform binary at ${cliPath}`);
-		return cliPath;
+		core.debug("Looking for `tofu`");
+		cliPath = await io.which(`tofu${exeSuffix}`, true);
+		core.info(`Using tofu binary at ${cliPath}`);
+		return { cliPath: cliPath, cliName: "tofu" };
 	} catch {
-		core.debug("`terraform-bin` not found");
-		try {
-			core.debug("Looking for `terraform`");
-			cliPath = await io.which(`terraform${exeSuffix}`, true);
-			core.info(`Using terraform binary at ${cliPath}`);
-			return cliPath;
-		} catch {
-			core.warning("terraform binary not found");
-		}
+		core.info("tofu binary not found");
+	}
+
+	try {
+		core.debug("Looking for `terraform`");
+		cliPath = await io.which(`terraform${exeSuffix}`, true);
+		core.info(`Using terraform binary at ${cliPath}`);
+		return { cliPath: cliPath, cliName: "terraform" };
+	} catch {
+		core.info("terraform binary not found");
 	}
 	throw new Error("CLI not found");
 }

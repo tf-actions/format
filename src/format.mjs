@@ -10,7 +10,8 @@ core.info("Starting Terraform formatting validation");
 
 let createAReview = false;
 if (core.getBooleanInput("create_review", { required: true })) {
-	if (context.payload.pull_request) {
+	if (context.eventName === "pull_request") {
+		core.debug("Will create a review for the formatting issues");
 		createAReview = true;
 	} else {
 		core.warning(
@@ -35,24 +36,11 @@ if (core.getInput("working_directory") !== workingDirectory) {
 	}
 }
 
-const cli = await findCLI();
-let cliName = "";
-switch (cli.split(path.sep).pop()) {
-	case "tofu":
-	case "tofu-bin":
-		cliName = "tofu";
-		break;
-	case "terraform":
-	case "terraform-bin":
-		cliName = "terraform";
-		break;
-	default:
-		cliName = cli.split(path.sep).pop();
-}
+const { cliPath, cliName } = await findCLI();
 
 if (core.getBooleanInput("init", { required: true })) {
 	core.startGroup("Running terraform init");
-	await exec(cli, ["init", "-backend=false"]);
+	await exec(cliPath, ["init", "-backend=false"]);
 	core.endGroup();
 }
 
@@ -78,8 +66,8 @@ if (core.getBooleanInput("recursive", { required: true })) {
 // Working directory is the last argument
 args.push(workingDirectory);
 
-core.debug(`Running: ${cli} ${args.join(" ")}`);
-const exitCode = await exec(cli, args, options);
+core.debug(`Running: ${cliName} ${args.join(" ")}`);
+const exitCode = await exec(cliPath, args, options);
 core.debug(`Exit code: ${exitCode}`);
 
 if (exitCode === 0) {
@@ -89,10 +77,14 @@ if (exitCode === 0) {
 		.write();
 	process.exit();
 }
-const files = stdout
-	.split("\n")
-	.filter((line) => line.trim() !== "")
-	.filter((line) => !line.startsWith("::"));
+const files = [
+	...new Set(
+		stdout
+			.split("\n")
+			.filter((line) => line.trim() !== "")
+			.filter((line) => !line.startsWith("::")),
+	),
+];
 core.debug(`stdout: ${stdout}`);
 core.info(`Found ${files.length} files with formatting issues`);
 core.debug(`Files: ${files.join(", ")}`);
@@ -112,11 +104,10 @@ summary.write();
 
 // Create annotations for each file with formatting issues
 for (const file of files) {
-	const properties = {
+	core.warning(`Incorrect formatting in ${file}`, {
 		title: "Incorrect formatting",
 		file: file,
-	};
-	core.error(`Incorrect formatting in ${file}`, properties);
+	});
 }
 
 // Create a review to fix the formatting issues if requested
@@ -129,7 +120,7 @@ if (createAReview) {
 	}
 	// Working directory is the last argument
 	args.push(workingDirectory);
-	await exec(cli, args, options);
+	await exec(cliPath, args, options);
 
 	core.info("Creating a review for the formatting issues");
 	await createReview(cliName);
