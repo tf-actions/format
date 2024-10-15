@@ -30,10 +30,10 @@ export async function findCLI() {
 				default:
 					cliName = cli.split(path.sep).pop();
 			}
+			core.info(`Using ${cliName} binary at ${cliPath}`);
 			return { cliPath: cliPath, cliName: cliName };
 		} catch {
 			core.info(`CLI path from input not found: ${cliPath}`);
-			core.debug("Searching for CLI in PATH");
 		}
 	}
 
@@ -42,6 +42,7 @@ export async function findCLI() {
 		cliPath = path.join(process.env.TOFU_CLI_PATH, `tofu-bin${exeSuffix}`);
 		try {
 			await io.which(cliPath, true);
+			core.info(`Using tofu binary at ${cliPath}`);
 			return { cliPath: cliPath, cliName: "tofu" };
 		} catch {
 			core.info(`CLI not found using TOFU_CLI_PATH: ${cliPath}`);
@@ -56,6 +57,7 @@ export async function findCLI() {
 		);
 		try {
 			await io.which(cliPath, true);
+			core.info(`Using terraform binary at ${cliPath}`);
 			return { cliPath: cliPath, cliName: "terraform" };
 		} catch {
 			core.info(`CLI not found using TERRAFORM_CLI_PATH: ${cliPath}`);

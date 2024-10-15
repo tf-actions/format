@@ -1,14 +1,12 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import {
-	getChanges,
-	createReviewComments,
-} from "./review-comments-from-git-diff.mjs";
+import getChanges from "@owretch/git-diff";
+import { createReviewComments } from "./review-comments-from-git-diff.mjs";
 const { context } = github;
 const { pull_request } = context.payload;
 
 const extensions = ["tf", "tfvars"];
-const reviewTag = "<!-- oWretch/terraform-format review -->";
+const reviewTag = `<!-- Review from ${context.action} -->`;
 
 export async function createReview(cliName) {
 	core.debug("Creating a review");
@@ -36,7 +34,7 @@ export async function createReview(cliName) {
 	);
 	core.debug(`pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`);
 
-	const changes = await getChanges(pullRequestFileNames);
+	const changes = getChanges(pullRequestFileNames);
 	const comments = createReviewComments(changes);
 
 	// Find the existing review(s), if they exists

@@ -97,13 +97,18 @@ export async function getChanges(files = []) {
 export function createReviewComments(changes) {
 	const comments = [];
 	for (const change of changes) {
+		if (!change.toFile) {
+			// @TODO: Handle deleted files
+			continue;
+		}
+
 		const comment = {
 			path: change.toFile.name,
 			// biome-ignore lint/style/useTemplate: Number of backticks
 			body: "````suggestion\n" + change.toFile.content + "````",
 		};
 
-		// line is the last line to which the comment applies
+		// `line` should be the last line number of the change for the review
 		if (Math.max(change.fromFile.line_count, change.toFile.line_count) === 1) {
 			comment.line = change.toFile.start_line;
 		} else {

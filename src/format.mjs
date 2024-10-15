@@ -36,10 +36,12 @@ if (core.getInput("working_directory") !== workingDirectory) {
 	}
 }
 
+core.startGroup("Finding Terraform CLI");
 const { cliPath, cliName } = await findCLI();
+core.endGroup();
 
 if (core.getBooleanInput("init", { required: true })) {
-	core.startGroup("Running terraform init");
+	core.startGroup(`Running ${cliName} init`);
 	await exec(cliPath, ["init", "-backend=false"]);
 	core.endGroup();
 }
