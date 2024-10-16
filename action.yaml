@@ -30,7 +30,7 @@ inputs:
     default: https://api.github.com
 runs:
   using: node20
-  main: dist/format.mjs
+  main: dist/index.mjs
 branding:
   icon: code
   color: purple
