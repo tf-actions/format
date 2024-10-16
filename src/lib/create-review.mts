@@ -1,37 +1,63 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import getChanges from "@owretch/git-diff";
-import { createReviewComments } from "./review-comments-from-git-diff.mjs";
+import createReviewComments from "./review-comments-from-git-diff.mjs";
+import type { PullRequestReview } from "@octokit/webhooks-types";
+
 const { context } = github;
+if (!context.payload.pull_request) {
+	throw new Error("This action can only be run on pull_request events");
+}
 const { pull_request } = context.payload;
 
-const extensions = ["tf", "tfvars"];
 const reviewTag = `<!-- Review from ${context.action} -->`;
 
-export async function createReview(cliName) {
+export async function createReview(cliName: string, extensions: Set<string>) {
 	core.debug("Creating a review");
 	core.debug("Creating octokit client");
 	const octokit = github.getOctokit(core.getInput("token", { required: true }));
 
 	// Get list of files in the current pull request.
 	// This means that we only post comments for files that have been changed in the PR.
-	const pullRequestFileNames = await octokit.paginate(
-		octokit.rest.pulls.listFiles,
-		{
-			...context.repo,
-			pull_number: pull_request.number,
-		},
-		(response) =>
-			response.data
-				.map((file) => {
-					if (
-						extensions.includes(file.filename.split(".").pop().toLowerCase())
-					) {
-						return file.filename;
-					}
-				})
-				.filter((n) => n),
+	const pullRequestFileNames = new Set(
+		...(await octokit.paginate(
+			octokit.rest.pulls.listFiles,
+			{
+				...context.repo,
+				pull_number: pull_request.number,
+			},
+			(response) =>
+				response.data
+					.map((file) => {
+						switch (file.status) {
+							case "added":
+							case "modified":
+							case "changed":
+							case "copied":
+							case "renamed":
+								return file.filename;
+							case "removed":
+							case "unchanged":
+						}
+					})
+					.filter((file) => {
+						// Only return files in the provided list of extensions.
+						// If no extensions provided, return all files.
+						if (extensions.size === 0) {
+							return file;
+						}
+						const extension = file?.split(".").pop() ?? "";
+						if (extensions.has(extension.toLowerCase())) {
+							return file;
+						}
+					})
+					.filter((n) => n !== undefined),
+		)),
 	);
+	if (pullRequestFileNames.size === 0 || pullRequestFileNames === undefined) {
+		core.info("No files to check in from the pull request");
+		return;
+	}
 	core.debug(`pullRequestFileNames: ${JSON.stringify(pullRequestFileNames)}`);
 
 	const changes = getChanges(pullRequestFileNames);
@@ -49,7 +75,8 @@ export async function createReview(cliName) {
 			response.data
 				.map((review) => {
 					if (
-						review.user.type === "Bot" &&
+						review !== undefined &&
+						review.user?.type === "Bot" &&
 						review.state === "CHANGES_REQUESTED" &&
 						review.body.includes(reviewTag)
 					) {
@@ -57,8 +84,11 @@ export async function createReview(cliName) {
 						return review;
 					}
 				})
-				.filter((n) => n),
+				.filter((n) => n !== undefined),
 	);
+	if (reviews === undefined || reviews.length === 0) {
+		core.info("No outstanding reviews found");
+	}
 	core.debug(`Review IDs: ${JSON.stringify(reviews.map((r) => r.id))}`);
 
 	for (const review of reviews) {
@@ -66,7 +96,7 @@ export async function createReview(cliName) {
 
 		let message = "Superseeded by new review";
 		let commentCloseClassifier = "OUTDATED";
-		if (comments.length === 0 && reviews.at(-1).id === review.id) {
+		if (comments.size === 0 && review.id === reviews[reviews.length - 1].id) {
 			// If we have no more changes, and we are dealing with the last review
 			// set the message to indicate the review is correctly resolved
 			message = "All formatting issues have been resolved";
@@ -135,28 +165,34 @@ export async function createReview(cliName) {
 	}
 
 	// Post a new review if we have comments
-	if (comments.length > 0) {
+	if (comments.size > 0) {
 		core.debug("Creating new review");
 
-		const changedFileNames = [
-			...new Set(changes.map((change) => change.toFile.name)),
-		];
+		const changedFileNames = new Set(
+			[...changes]
+				.map((change) => {
+					if (change.toFile) {
+						change.toFile.name;
+					}
+				})
+				.filter((n) => n !== undefined),
+		);
 
 		await octokit.rest.pulls.createReview({
 			...context.repo,
 			pull_number: pull_request.number,
 			event: "REQUEST_CHANGES",
-			comments,
+			...comments,
 			body: `\
 # Formatting Review
-${changedFileNames.length} files in this pull request have formatting issues. \
+${changedFileNames.size} files in this pull request have formatting issues. \
 Please run \`${cliName} fmt\` to fix them.
 
 <details>
 
 <summary>Files with formatting issues</summary>
 
-${changedFileNames.map((n) => `- \`${n}\``).join("\n")}
+${[...changedFileNames].map((n) => `- \`${n}\``).join("\n")}
 
 </details>
 ${reviewTag}

@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import * as path from "node:path";
-import { fs } from "node:fs";
+import * as fs from "node:fs";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
 import { findCLI } from "./lib/find-cli.mjs";
@@ -20,12 +20,12 @@ if (core.getBooleanInput("create_review", { required: true })) {
 	}
 }
 
-let workingDirectory = process.env.GITHUB_WORKSPACE;
+let workingDirectory = process.env.GITHUB_WORKSPACE ?? ".";
 if (core.getInput("working_directory") !== workingDirectory) {
 	let userWorkingDirectory = core.getInput("working_directory");
 	if (!path.isAbsolute(userWorkingDirectory)) {
 		userWorkingDirectory = path.join(
-			process.env.GITHUB_WORKSPACE,
+			process.env.GITHUB_WORKSPACE ?? "",
 			core.getInput("working_directory"),
 		);
 	}
@@ -51,10 +51,10 @@ let stderr = "";
 const options = {
 	cwd: workingDirectory,
 	listeners: {
-		stdout: (data) => {
+		stdout: (data: Buffer) => {
 			stdout += data.toString();
 		},
-		stderr: (data) => {
+		stderr: (data: Buffer) => {
 			stderr += data.toString();
 		},
 	},
@@ -125,6 +125,6 @@ if (createAReview) {
 	await exec(cliPath, args, options);
 
 	core.info("Creating a review for the formatting issues");
-	await createReview(cliName);
+	await createReview(cliName, new Set(["tf", "tfvars"]));
 }
 core.setFailed("Formatting needs to be updated");
