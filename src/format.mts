@@ -1,13 +1,23 @@
 import * as core from "@actions/core";
-import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
-import { findCLI } from "./lib/find-cli.mjs";
-import { createReview } from "./lib/create-review.mjs";
+import getChanges from "@owretch/git-diff";
+import createReview from "@owretch/create-github-review";
+
+const tfFiles = new Set([
+	"*.tf",
+	"*.tfvars",
+	"*.tftest.hcl",
+	"*.tofu",
+	"*.tofutest.hcl",
+]);
 
 core.info("Starting Terraform formatting validation");
 
+// Setup flags to control execution
 let createAReview = false;
 if (core.getBooleanInput("create_review", { required: true })) {
 	if (context.eventName === "pull_request") {
@@ -20,6 +30,7 @@ if (core.getBooleanInput("create_review", { required: true })) {
 	}
 }
 
+// Get the working directory
 let workingDirectory = process.env.GITHUB_WORKSPACE ?? ".";
 if (core.getInput("working_directory") !== workingDirectory) {
 	let userWorkingDirectory = core.getInput("working_directory");
@@ -36,16 +47,55 @@ if (core.getInput("working_directory") !== workingDirectory) {
 	}
 }
 
-core.startGroup("Finding Terraform CLI");
-const { cliPath, cliName } = await findCLI();
-core.endGroup();
+// Get the Terraform/OpenTofu CLI path
+let cliPath = "";
+let cliName = "";
+const exeSuffix = os.platform().startsWith("win") ? ".exe" : "";
 
+if (core.getInput("cli_path")) {
+	cliPath = core.getInput("cli_path");
+	if (cliPath === "") {
+		throw new Error("CLI path is empty");
+	}
+	if (!cliPath.endsWith(exeSuffix)) {
+		core.debug("Adding exe suffix to CLI path");
+		cliPath += exeSuffix;
+	}
+	core.info(`Using CLI from input: ${cliPath}`);
+	if (!fs.existsSync(cliPath)) {
+		core.setFailed(`CLI path does not exist: ${cliPath}`);
+	}
+	cliName = path.basename(cliPath, exeSuffix);
+	core.info(`Using ${cliName} CLI from input: ${cliPath}`);
+} else if (process.env.TOFU_CLI_PATH) {
+	cliPath = path.join(process.env.TOFU_CLI_PATH, `tofu-bin${exeSuffix}`);
+	cliName = "tofu";
+	core.info(`Using ${cliName} CLI from TOFU_CLI_PATH: ${cliPath}`);
+} else if (process.env.TERRAFORM_CLI_PATH) {
+	cliPath = path.join(
+		process.env.TERRAFORM_CLI_PATH,
+		`terraform-bin${exeSuffix}`,
+	);
+	cliName = "terraform";
+	core.info(`Using ${cliName} CLI from TERRAFORM_CLI_PATH: ${cliPath}`);
+} else {
+	core.setFailed(
+		"No CLI path provided, and no Terraform/OpenTofu Setup task detected.",
+	);
+}
+
+if (!fs.existsSync(cliPath)) {
+	core.setFailed(`CLI path does not exist: ${cliPath}`);
+}
+
+// Initialize the configuration if requested
 if (core.getBooleanInput("init", { required: true })) {
 	core.startGroup(`Running ${cliName} init`);
 	await exec(cliPath, ["init", "-backend=false"]);
 	core.endGroup();
 }
 
+// Run a check to see if the configuration is formatted correctly
 let stdout = "";
 let stderr = "";
 const options = {
@@ -59,42 +109,38 @@ const options = {
 		},
 	},
 	ignoreReturnCode: true,
-	silent: true, // avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
+	silent: true, // Avoid printing command in stdout: https://github.com/actions/toolkit/issues/649
 };
-const args = ["fmt", "-check"];
+const args = ["fmt"];
 if (core.getBooleanInput("recursive", { required: true })) {
 	args.push("-recursive");
 }
-// Working directory is the last argument
-args.push(workingDirectory);
+args.push(workingDirectory); // Working directory is the last argument
 
 core.debug(`Running: ${cliName} ${args.join(" ")}`);
 const exitCode = await exec(cliPath, args, options);
 core.debug(`Exit code: ${exitCode}`);
 
-if (exitCode === 0) {
+// Get the changes in the configuration
+const changes = getChanges(tfFiles);
+
+if (changes.size === 0) {
 	core.info("Configuration is formatted correctly");
 	await core.summary
 		.addHeading(":white_check_mark: Formatting is correct", 2)
 		.write();
 	process.exit();
 }
-const files = [
-	...new Set(
-		stdout
-			.split("\n")
-			.filter((line) => line.trim() !== "")
-			.filter((line) => !line.startsWith("::")),
-	),
-];
-core.debug(`stdout: ${stdout}`);
-core.info(`Found ${files.length} files with formatting issues`);
-core.debug(`Files: ${files.join(", ")}`);
-
+const changedFileNames = new Set(
+	[...changes]
+		.map((change) => change.toFile?.name ?? change.fromFile?.name)
+		.filter((f) => f !== undefined),
+);
+core.info(`Found ${changedFileNames.size} files with formatting issues`);
 const summary = core.summary
 	.addHeading(":x: Formatting needs to be updated", 2)
-	.addRaw(`Found ${files.length} files with formatting issues`, true)
-	.addList(files);
+	.addRaw(`Found ${changedFileNames.size} files with formatting issues`, true)
+	.addList([...changedFileNames]);
 
 if (!createAReview) {
 	summary.addRaw(
@@ -104,27 +150,28 @@ if (!createAReview) {
 }
 summary.write();
 
-// Create annotations for each file with formatting issues
-for (const file of files) {
-	core.warning(`Incorrect formatting in ${file}`, {
-		title: "Incorrect formatting",
-		file: file,
-	});
-}
-
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
-	// Run the formatting command to fix the issues
-	core.debug(`Running ${cliName} fmt to fix the formatting issues`);
-	const args = ["fmt"];
-	if (core.getBooleanInput("recursive", { required: true })) {
-		args.push("-recursive");
-	}
-	// Working directory is the last argument
-	args.push(workingDirectory);
-	await exec(cliPath, args, options);
+	const reviewBody = `\
+# Formatting Review
+${changedFileNames.size} files in this pull request have formatting issues. \
+Please run \`${cliName} fmt\` to fix them.
 
-	core.info("Creating a review for the formatting issues");
-	await createReview(cliName, new Set(["tf", "tfvars"]));
+<details>
+
+<summary>Files with formatting issues</summary>
+
+${[...changedFileNames].map((n) => `- \`${n}\``).join("\n")}
+
+</details>`;
+	await createReview(changes, reviewBody);
+} else {
+	// Create annotations for each file with formatting issues
+	for (const file of changedFileNames) {
+		core.warning(`Please run \`${cliName} fmt\` to fix the formatting issues`, {
+			title: "Incorrect formatting",
+			file: file,
+		});
+	}
 }
 core.setFailed("Formatting needs to be updated");
