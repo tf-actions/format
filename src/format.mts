@@ -122,7 +122,9 @@ const exitCode = await exec(cliPath, args, options);
 core.debug(`Exit code: ${exitCode}`);
 
 // Get the changes in the configuration
+core.startGroup("Getting changes in the configuration");
 const changes = getChanges(tfFiles);
+core.endGroup();
 
 if (changes.size === 0) {
 	core.info("Configuration is formatted correctly");
