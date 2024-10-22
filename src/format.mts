@@ -29,6 +29,11 @@ if (core.getBooleanInput("create_review", { required: true })) {
 		);
 	}
 }
+let strictMode = false;
+if (core.getBooleanInput("strict_mode", { required: true })) {
+	core.debug("Strict mode enabled. Will fail if formatting is incorrect");
+	strictMode = true;
+}
 
 // Get the working directory
 let workingDirectory = process.env.GITHUB_WORKSPACE ?? ".";
@@ -139,8 +144,13 @@ const changedFileNames = new Set(
 		.filter((f) => f !== undefined),
 );
 core.info(`Found ${changedFileNames.size} files with formatting issues`);
-const summary = core.summary
-	.addHeading(":x: Formatting needs to be updated", 2)
+const summary = core.summary;
+if (strictMode) {
+	summary.addHeading(":x: Formatting needs to be updated", 2);
+} else {
+	summary.addHeading(":warning: Formatting needs to be updated", 2);
+}
+summary
 	.addRaw(`Found ${changedFileNames.size} files with formatting issues`, true)
 	.addList([...changedFileNames]);
 
@@ -154,6 +164,7 @@ summary.write();
 
 // Create a review to fix the formatting issues if requested
 if (createAReview) {
+	core.debug("Creating a review for the formatting issues");
 	const reviewBody = `\
 # Formatting Review
 ${changedFileNames.size} files in this pull request have formatting issues. \
@@ -168,6 +179,7 @@ ${[...changedFileNames].map((n) => `- \`${n}\``).join("\n")}
 </details>`;
 	await createReview(changes, reviewBody);
 } else {
+	core.debug("Creating annotations for the formatting issues");
 	// Create annotations for each file with formatting issues
 	for (const file of changedFileNames) {
 		core.warning(`Please run \`${cliName} fmt\` to fix the formatting issues`, {
@@ -176,4 +188,10 @@ ${[...changedFileNames].map((n) => `- \`${n}\``).join("\n")}
 		});
 	}
 }
-core.setFailed("Formatting needs to be updated");
+
+if (strictMode) {
+	core.debug("Failing due to strict mode");
+	core.setFailed("Formatting needs to be updated");
+}
+
+core.debug("Exiting despite formatting issues");

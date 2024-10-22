@@ -13,6 +13,10 @@ inputs:
     description: Recursively format all files in the directory
     required: true
     default: "false"
+  strict_mode:
+    description: Must formatting be correct for the action to pass
+    required: true
+    default: "false"
   create_review:
     description: Create a code review with the required formatting changes
     required: true
