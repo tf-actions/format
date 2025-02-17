@@ -166,7 +166,7 @@ summary.write();
 if (createAReview) {
 	core.debug("Creating a review for the formatting issues");
 	const reviewBody = `\
-# Formatting Review
+# Formatting Issues
 ${changedFileNames.size} files in this pull request have formatting issues. \
 Please run \`${cliName} fmt\` to fix them.
 
