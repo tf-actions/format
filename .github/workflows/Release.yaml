@@ -32,4 +32,21 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          npx semantic-release
+
+      - name: Update SemVer Tags
+        run: |
+          version=$(npx -c 'echo "$npm_package_version"')
+
+          # Only move if the current commit is tagged
+          if git tag -l | grep -Fqx -- "v$version"; then
+            parts=(${version//./ })
+
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+            git tag -fa $(printf 'v%d.%d' $parts) -m "Version $(printf 'v%d.%d' $parts)"
+            git tag -fa $(printf 'v%d' $parts) -m "Version $(printf 'v%d' $parts)"
+            git push origin --tags
+          fi
