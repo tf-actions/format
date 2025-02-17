@@ -1,9 +1,10 @@
-# terraform-format GitHub Action
+# tf-format GitHub Action
 
-A javascript GitHub Action to format a Terraform configuration, and post a code review on the pull request highlighting issues.
+A javascript GitHub Action to format a Terraform configuration, and post a code
+review on the pull request highlighting issues.
 
-The action will initialise the Terraform working directory by default.
-This can be disabled with the `init` parameter.
+The action will initialise the Terraform working directory by default. This can
+be disabled with the `init` parameter.
 
 A summary will be posted with details of any validation errors.
 
@@ -11,7 +12,9 @@ A summary will be posted with details of any validation errors.
 
 ### `cli-path`
 
-Description: Path to the cli binary to use for executing commands. By default the action will look for the binary using the `TOFU_CLI_PATH` and `TERRAFORM_CLI_PATH` variables.
+Description: Path to the cli binary to use for executing commands. By default
+the action will look for the binary using the `TOFU_CLI_PATH` and
+`TERRAFORM_CLI_PATH` variables.
 
 ### `token`
 
@@ -54,7 +57,7 @@ steps:
     uses: hashicorp/setup-terraform@v3
 
   - name: Format Configuration
-    uses: oWretch/terraform-format@v1
+    uses: tf-actions/format@v1
 ```
 
 Check formatting and create a code review with the required updates.
@@ -68,7 +71,7 @@ steps:
     uses: hashicorp/setup-terraform@v3
 
   - name: Format Configuration
-    uses: oWretch/terraform-format@v1
+    uses: tf-actions/format@v1
     with:
       create-review: true
       token: ${{ secrets.GITHUB_TOKEN }}
