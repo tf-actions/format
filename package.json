@@ -43,6 +43,6 @@
     "esbuild": "^0.25.2",
     "esbuild-plugin-tsc": "^0.5.0",
     "semantic-release": "^24.2.3",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   }
 }
