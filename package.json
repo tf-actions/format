@@ -38,7 +38,7 @@
   "devDependencies": {
     "@octokit/webhooks-types": "^7.6.1",
     "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^11.0.6",
+    "@semantic-release/github": "^12.0.0",
     "@types/node": "^24.8.1",
     "esbuild": "^0.25.10",
     "esbuild-plugin-tsc": "^0.5.0",
