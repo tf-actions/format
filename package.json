@@ -30,7 +30,7 @@
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/exec": "^3.0.0",
-    "@actions/github": "^9.1.0",
+    "@actions/github": "^9.1.1",
     "@actions/io": "^3.0.2",
     "@owretch/create-github-review": "^1.0.0",
     "@owretch/git-diff": "^1.0.0"
