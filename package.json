@@ -32,7 +32,6 @@
     "@actions/exec": "^3.0.0",
     "@actions/github": "^9.1.1",
     "@actions/io": "^3.0.2",
-    "@owretch/create-github-review": "^1.0.0",
     "@owretch/git-diff": "^1.0.0"
   },
   "devDependencies": {
@@ -43,5 +42,16 @@
     "esbuild": "^0.28.1",
     "semantic-release": "^25.0.8",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@actions/core": {
+      "undici": "^6.28.0"
+    },
+    "@actions/github": {
+      "undici": "^6.28.0"
+    },
+    "@actions/http-client": {
+      "undici": "^6.28.0"
+    }
   }
 }

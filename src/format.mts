@@ -2,10 +2,10 @@ import * as core from "@actions/core";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { context } from "@actions/github";
+import { context, getOctokit } from "@actions/github";
 import { exec } from "@actions/exec";
 import getChanges from "@owretch/git-diff";
-import createReview from "@owretch/create-github-review";
+import type { Change } from "@owretch/git-diff";
 
 const tfFiles = new Set([
 	"*.tf",
@@ -195,3 +195,118 @@ if (strictMode) {
 }
 
 core.debug("Exiting despite formatting issues");
+
+const reviewTag = `<!-- Review from ${context.action} -->`;
+
+async function createReview(changes: Set<Change>, reviewBody: string) {
+	core.info("Creating a GitHub review");
+	if (!context.payload.pull_request) {
+		throw new Error("This action can only be run on pull_request events");
+	}
+	const octokit = getOctokit(core.getInput("token", { required: true }));
+	const { pull_request } = context.payload;
+	const reviews = await octokit.paginate(
+		octokit.rest.pulls.listReviews,
+		{
+			...context.repo,
+			pull_number: pull_request.number,
+		},
+		(response) =>
+			response.data
+				.map((review) => {
+					if (
+						review.user?.type === "Bot" &&
+						review.state === "CHANGES_REQUESTED" &&
+						review.body?.includes(reviewTag)
+					) {
+						return review;
+					}
+				})
+				.filter((review) => review !== undefined),
+	);
+
+	for (const review of reviews) {
+		let message = "Superseeded by new review";
+		let commentCloseClassifier = "OUTDATED";
+		if (changes.size === 0 && review.id === reviews[reviews.length - 1].id) {
+			message = "All formatting issues have been resolved";
+			commentCloseClassifier = "RESOLVED";
+		}
+
+		const oldComments = await octokit.paginate(
+			octokit.rest.pulls.listCommentsForReview,
+			{
+				...context.repo,
+				pull_number: pull_request.number,
+				review_id: review.id,
+			},
+			(response) => response.data,
+		);
+
+		for (const comment of oldComments) {
+			await octokit.graphql(
+				`
+					mutation hideComment($id: ID!, $classifier: ReportedContentClassifiers!) {
+						minimizeComment(input: {subjectId: $id, classifier: $classifier}) {
+							clientMutationId
+						}
+					}
+				`,
+				{ id: comment.node_id, classifier: commentCloseClassifier },
+			);
+		}
+
+		await octokit.graphql(
+			`
+				mutation hideComment($id: ID!, $classifier: ReportedContentClassifiers!) {
+					minimizeComment(input: {subjectId: $id, classifier: $classifier}) {
+						clientMutationId
+					}
+				}
+			`,
+			{ id: review.node_id, classifier: commentCloseClassifier },
+		);
+		await octokit.rest.pulls.dismissReview({
+			...context.repo,
+			pull_number: pull_request.number,
+			review_id: review.id,
+			message,
+		});
+	}
+
+	if (changes.size > 0) {
+		await octokit.rest.pulls.createReview({
+			...context.repo,
+			pull_number: pull_request.number,
+			event: "REQUEST_CHANGES",
+			comments: createComments(changes),
+			body: `${reviewBody}\n${reviewTag}`,
+		});
+	}
+}
+
+function createComments(changes: Set<Change>) {
+	return [...changes]
+		.filter((change) => change.toFile !== undefined)
+		.map((change) => {
+			const lineCount = Math.max(
+				change.fromFile?.line_count ?? 0,
+				change.toFile!.line_count,
+			);
+			const comment: {
+				path: string;
+				body: string;
+				line: number;
+				start_line?: number;
+			} = {
+				path: change.toFile!.name,
+				body: "````suggestion\n" + change.toFile!.content + "````",
+				line: change.toFile!.start_line,
+			};
+			if (lineCount > 1) {
+				comment.start_line = change.toFile!.start_line;
+				comment.line = change.toFile!.start_line + lineCount - 1;
+			}
+			return comment;
+		});
+}
