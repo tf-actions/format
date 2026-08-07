@@ -7,7 +7,7 @@
   "scripts": {
     "clean": "rm -rf dist/* *.tsbuildinfo",
     "prebuild": "npm run clean",
-    "build": "node ./build.js",
+    "build": "tsc --noEmit && node ./build.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -32,7 +32,7 @@
     "@actions/exec": "^3.0.0",
     "@actions/github": "^9.1.1",
     "@actions/io": "^3.0.2",
-    "@owretch/create-github-review": "^1.0.0",
+    "@owretch/create-github-review": "^1.1.0",
     "@owretch/git-diff": "^1.0.0"
   },
   "devDependencies": {
@@ -41,8 +41,18 @@
     "@semantic-release/github": "^12.0.9",
     "@types/node": "^26.1.2",
     "esbuild": "^0.28.1",
-    "esbuild-plugin-tsc": "^0.6.0",
     "semantic-release": "^25.0.8",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@actions/core": {
+      "undici": "^6.28.0"
+    },
+    "@actions/github": {
+      "undici": "^6.28.0"
+    },
+    "@actions/http-client": {
+      "undici": "^6.28.0"
+    }
   }
 }

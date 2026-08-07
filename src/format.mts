@@ -4,8 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { context } from "@actions/github";
 import { exec } from "@actions/exec";
+import createGithubReview from "@owretch/create-github-review";
 import getChanges from "@owretch/git-diff";
-import createReview from "@owretch/create-github-review";
 
 const tfFiles = new Set([
 	"*.tf",
@@ -177,7 +177,7 @@ Please run \`${cliName} fmt\` to fix them.
 ${[...changedFileNames].map((n) => `- \`${n}\``).join("\n")}
 
 </details>`;
-	await createReview(changes, reviewBody);
+	await createGithubReview(changes, reviewBody);
 } else {
 	core.debug("Creating annotations for the formatting issues");
 	// Create annotations for each file with formatting issues

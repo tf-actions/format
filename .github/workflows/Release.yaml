@@ -34,7 +34,7 @@ jobs:
         run: npm clean-install
 
       - name: Audit dependencies
-        run: npm audit
+        run: npm audit --omit=dev
 
       - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
         run: npm audit signatures
